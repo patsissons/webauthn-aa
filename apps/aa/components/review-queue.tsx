@@ -59,6 +59,19 @@ export function ReviewQueue() {
     }
   }
 
+  async function rejectAll() {
+    if (requests.length === 0) return;
+    if (!window.confirm(`Reject all ${requests.length} pending request(s)?`)) return;
+    setBusy(true);
+    try {
+      await fetch("/api/review/reject-all", { method: "POST" });
+      setSelected(null);
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="grid gap-6 md:grid-cols-2">
       <Card data-testid="review-list">
@@ -67,6 +80,19 @@ export function ReviewQueue() {
           <CardDescription>{requests.length} awaiting decision</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
+          {requests.length > 0 && (
+            <div className="flex justify-end">
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={busy}
+                data-testid="reject-all"
+                onClick={rejectAll}
+              >
+                Reject all ({requests.length})
+              </Button>
+            </div>
+          )}
           {requests.length === 0 && (
             <p className="text-sm text-[var(--color-muted-foreground)]">No pending requests.</p>
           )}

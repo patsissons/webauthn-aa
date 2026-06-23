@@ -22,10 +22,14 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: "pnpm dev",
+    // `dev:test` runs the full stack against ISOLATED PocketBase data dirs
+    // (pb_data_test) so e2e runs never pollute the `pnpm dev` database.
+    // reuseExistingServer is off so a manually-running `pnpm dev` (which uses the
+    // real data dirs) is never reused — stop it before running e2e.
+    command: "pnpm dev:test",
     url: "http://localhost:3000",
     timeout: 180_000,
-    reuseExistingServer: true,
+    reuseExistingServer: false,
     stdout: "pipe",
     stderr: "pipe",
   },

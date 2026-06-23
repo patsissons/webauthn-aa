@@ -6,13 +6,19 @@ import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join } from "node:path";
 import { config as loadEnv } from "dotenv";
 import PocketBase from "pocketbase";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 loadEnv({ path: join(root, ".env") });
 loadEnv({ path: join(root, ".env.local"), override: true });
+
+// Data dirs are env-overridable so e2e can target an isolated DB (POCKETBASE_*_DATA_DIR).
+const resolveDir = (envVal, fallback) => {
+  const v = envVal || fallback;
+  return isAbsolute(v) ? v : join(root, v);
+};
 
 const pbBin = join(root, "bin", "pocketbase");
 if (!existsSync(pbBin)) {
@@ -25,7 +31,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const instances = {
   rp: {
-    dir: join(root, "pocketbase/rp/pb_data"),
+    dir: resolveDir(process.env.POCKETBASE_RP_DATA_DIR, "pocketbase/rp/pb_data"),
     migrations: join(root, "pocketbase/rp/pb_migrations"),
     hooks: join(root, "pocketbase/rp/pb_hooks"),
     url: process.env.POCKETBASE_RP_URL || "http://127.0.0.1:8090",
@@ -34,7 +40,7 @@ const instances = {
     password: process.env.POCKETBASE_RP_SUPERUSER_PASSWORD,
   },
   aa: {
-    dir: join(root, "pocketbase/aa/pb_data"),
+    dir: resolveDir(process.env.POCKETBASE_AA_DATA_DIR, "pocketbase/aa/pb_data"),
     migrations: join(root, "pocketbase/aa/pb_migrations"),
     hooks: join(root, "pocketbase/aa/pb_hooks"),
     url: process.env.POCKETBASE_AA_URL || "http://127.0.0.1:8091",

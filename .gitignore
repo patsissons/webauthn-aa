@@ -6,9 +6,9 @@ node_modules/
 .env.local
 .env.*.local
 
-# pocketbase binary + local data
+# pocketbase binary + local data (incl. isolated e2e test dirs: pb_data_test)
 bin/
-pocketbase/*/pb_data/
+pocketbase/*/pb_data*/
 
 # next.js
 .next/

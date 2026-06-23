@@ -51,6 +51,10 @@ safety. Use `pnpm lint:fix` to auto-fix what's mechanically fixable.
   full stack (both Next apps + both PocketBase instances) via the Playwright
   `webServer` config, so it needs the PocketBase binary present (`pnpm install`
   downloads it).
+- e2e runs against **isolated** PocketBase data dirs (`pocketbase/*/pb_data_test`,
+  gitignored) via the `dev:test` script, so they never pollute the `pnpm dev`
+  database. The test webServer uses the same ports and does not reuse an existing
+  one — stop a manually-running `pnpm dev` before running e2e.
 - Shared e2e helpers and fixtures live in `e2e/support/` (e.g. the fake-ID
   specimen fixtures in `e2e/support/fake-id.ts`).
 
