@@ -2,16 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser";
-import { sealEvidence } from "@/lib/envelope-client";
-import {
-  fakeIdDataUrl,
-  ADULT_SPECIMEN_OPTS,
-  MINOR_SPECIMEN_OPTS,
-  type FakeIdOptions,
-} from "@/lib/fake-id";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +23,14 @@ interface RegionOption {
   summary?: string;
 }
 
+interface EvidenceEnvelopePayload {
+  materialId: string;
+  nonce: string;
+  ciphertext: string;
+  iv: string;
+  wrappedKey: string;
+}
+
 const FALLBACK_REGIONS: RegionOption[] = [
   { id: "region-1", label: "Region 1", summary: "age ≥ 18" },
   { id: "region-2", label: "Region 2", summary: "age ≥ 21" },
@@ -39,6 +39,11 @@ const FALLBACK_REGIONS: RegionOption[] = [
 function regionOptionLabel(r: RegionOption): string {
   return r.summary ? `${r.label} — ${r.summary}` : r.label;
 }
+
+// AA origin compiled into the client bundle (honest client config). Evidence is
+// captured + encrypted in a popup on THIS origin; the RP only ever receives the
+// resulting ciphertext, and only accepts it from this exact origin.
+const AA_ORIGIN = process.env.NEXT_PUBLIC_AA_ORIGIN ?? "";
 
 async function postJson(url: string, body?: unknown) {
   const res = await fetch(url, {
@@ -53,30 +58,36 @@ async function postJson(url: string, body?: unknown) {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-// AA origin compiled into the client bundle (honest client config). The browser
-// uses THIS to fetch the encryption key directly from the AA — never a URL or key
-// supplied by the RP in a per-request response.
-const AA_ORIGIN = process.env.NEXT_PUBLIC_AA_ORIGIN ?? "";
-
-async function fetchAaMaterial(
-  materialId: string,
-): Promise<{ publicKeyJwk: JsonWebKey; nonce: string }> {
-  if (!AA_ORIGIN) throw new Error("AA origin is not configured");
-  const res = await fetch(`${AA_ORIGIN}/api/v1/encryption-material/${materialId}`, {
-    cache: "no-store",
+// Wait for the AA capture popup to post back a ciphertext envelope. Only messages
+// from the genuine AA origin are accepted; the popup closing or cancelling rejects.
+function waitForEnvelope(popup: Window): Promise<EvidenceEnvelopePayload> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      window.removeEventListener("message", onMessage);
+      clearInterval(timer);
+      fn();
+    };
+    function onMessage(e: MessageEvent) {
+      if (e.origin !== AA_ORIGIN) return;
+      if (e.data?.type === "evidence-envelope") {
+        finish(() => resolve(e.data.payload as EvidenceEnvelopePayload));
+      } else if (e.data?.type === "evidence-cancelled") {
+        finish(() => reject(new Error("capture cancelled")));
+      }
+    }
+    const timer = setInterval(() => {
+      if (popup.closed) finish(() => reject(new Error("capture window closed")));
+    }, 500);
+    window.addEventListener("message", onMessage);
   });
-  if (!res.ok) throw new Error(`could not fetch AA key (${res.status})`);
-  return res.json();
 }
 
 export function AttestFlow() {
   const [phase, setPhase] = useState<Phase>({ kind: "evidence" });
-  const [claimedName, setClaimedName] = useState("");
-  const [birthDate, setBirthDate] = useState("");
   const [demoRegion, setDemoRegion] = useState("region-1");
-  const photoRef = useRef<string | null>(null);
-  const [photoName, setPhotoName] = useState("");
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [regions, setRegions] = useState<RegionOption[]>(FALLBACK_REGIONS);
   const budgetRef = useRef({ totalBudgetMs: 180_000, pollIntervalMs: 2000 });
 
@@ -94,35 +105,6 @@ export function AttestFlow() {
       })
       .catch(() => {});
   }, []);
-
-  function applyPhoto(dataUrl: string, name: string) {
-    photoRef.current = dataUrl;
-    setPhotoPreview(dataUrl);
-    setPhotoName(name);
-  }
-
-  function onPhoto(file: File | undefined) {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => applyPhoto(reader.result as string, file.name);
-    reader.readAsDataURL(file);
-  }
-
-  // Generate an obviously-fake SPECIMEN ID card and use it as the evidence
-  // photo, syncing the claimed name + DOB so the reviewer sees a coherent card.
-  function useSpecimen(opts: FakeIdOptions) {
-    setClaimedName(opts.name);
-    setBirthDate(opts.dob);
-    applyPhoto(fakeIdDataUrl(opts), `specimen-${opts.dob}.svg`);
-  }
-
-  function generateFromDetails() {
-    if (!claimedName.trim() || !birthDate) {
-      setPhase({ kind: "error", message: "Enter a name and date of birth first." });
-      return;
-    }
-    applyPhoto(fakeIdDataUrl({ name: claimedName.trim(), dob: birthDate }), "specimen-id.svg");
-  }
 
   async function pollUntilDecision(requestId: string): Promise<void> {
     const { totalBudgetMs, pollIntervalMs } = budgetRef.current;
@@ -151,31 +133,44 @@ export function AttestFlow() {
     setPhase({ kind: "error", message: "Timed out waiting for verification." });
   }
 
-  async function submit() {
-    if (!claimedName.trim() || !birthDate || !photoRef.current) {
-      setPhase({ kind: "error", message: "Provide a name, date of birth, and a photo." });
+  // Must open the popup synchronously within the click gesture (else it's blocked);
+  // then navigate it to the AA capture page once we have a materialId.
+  function startVerification() {
+    const popup = window.open("about:blank", "aa-capture", "width=480,height=780");
+    if (!popup) {
+      setPhase({ kind: "error", message: "Popup blocked — allow popups for this site and retry." });
       return;
     }
+    void runVerification(popup);
+  }
+
+  async function runVerification(popup: Window) {
     try {
-      setPhase({ kind: "waiting", message: "Encrypting evidence…" });
-      // The RP only relays an opaque materialId; the genuine public key + nonce
-      // are fetched DIRECTLY from the AA (TLS-authenticated) so the RP cannot
-      // substitute its own key to read the evidence.
+      setPhase({ kind: "waiting", message: "Opening secure capture window…" });
       const { materialId } = await postJson("/api/attest/material");
-      const aaMaterial = await fetchAaMaterial(materialId);
-      const envelope = await sealEvidence(aaMaterial.publicKeyJwk, {
-        photo: photoRef.current,
-        claimedName: claimedName.trim(),
-        claimedBirthDate: birthDate,
-      });
+      const url =
+        `${AA_ORIGIN}/capture?materialId=${encodeURIComponent(materialId)}` +
+        `&rpOrigin=${encodeURIComponent(window.location.origin)}` +
+        `&region=${encodeURIComponent(demoRegion)}`;
+      popup.location.href = url;
+
+      const envelope = await waitForEnvelope(popup);
+      setPhase({ kind: "waiting", message: "Submitting encrypted evidence…" });
       const { requestId } = await postJson("/api/attest/submit", {
-        materialId,
-        nonce: aaMaterial.nonce,
-        ...envelope,
+        materialId: envelope.materialId,
+        nonce: envelope.nonce,
+        ciphertext: envelope.ciphertext,
+        iv: envelope.iv,
+        wrappedKey: envelope.wrappedKey,
       });
       setPhase({ kind: "waiting", message: "Waiting for verification…" });
       await pollUntilDecision(requestId);
     } catch (err) {
+      try {
+        popup.close();
+      } catch {
+        /* ignore */
+      }
       setPhase({ kind: "error", message: (err as Error).message });
     }
   }
@@ -212,102 +207,12 @@ export function AttestFlow() {
       <CardHeader>
         <CardTitle>Attested registration</CardTitle>
         <CardDescription>
-          Submit ID evidence (encrypted in your browser — the RP never sees it). After a reviewer
-          approves, you get a passkey bound to the attestation.
+          Evidence is captured and encrypted in a secure window on the Attestation Authority — this
+          relying party never sees it, only ciphertext it cannot read. After a reviewer approves,
+          you get a passkey bound to the attestation.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="claimedName">Full name</Label>
-            <Input
-              id="claimedName"
-              data-testid="claimed-name"
-              value={claimedName}
-              onChange={(e) => setClaimedName(e.target.value)}
-              disabled={busy}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="birthDate">Date of birth</Label>
-            <Input
-              id="birthDate"
-              data-testid="birth-date"
-              type="date"
-              value={birthDate}
-              onChange={(e) => setBirthDate(e.target.value)}
-              disabled={busy}
-            />
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="photo">Photo of ID</Label>
-          <Input
-            id="photo"
-            data-testid="photo"
-            type="file"
-            accept="image/*"
-            onChange={(e) => onPhoto(e.target.files?.[0])}
-            disabled={busy}
-          />
-          {photoName && <p className="text-xs text-[var(--color-muted-foreground)]">{photoName}</p>}
-
-          <div className="rounded-md border border-dashed border-[var(--color-border)] p-3">
-            <p className="mb-2 text-xs font-medium text-[var(--color-muted-foreground)]">
-              No ID handy? Generate an obviously-fake SPECIMEN card for the demo.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                disabled={busy}
-                data-testid="gen-adult"
-                onClick={() => useSpecimen(ADULT_SPECIMEN_OPTS)}
-              >
-                Adult specimen
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                disabled={busy}
-                data-testid="gen-minor"
-                onClick={() => useSpecimen(MINOR_SPECIMEN_OPTS)}
-              >
-                Minor specimen
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={busy}
-                data-testid="gen-from-details"
-                onClick={generateFromDetails}
-              >
-                From entered details
-              </Button>
-            </div>
-            {photoPreview && (
-              <div className="mt-3 space-y-1">
-                <img
-                  src={photoPreview}
-                  alt="ID evidence preview"
-                  data-testid="photo-preview"
-                  className="max-h-40 w-full rounded-md border border-[var(--color-border)] object-contain"
-                />
-                <a
-                  href={photoPreview}
-                  download={photoName || "specimen-id.svg"}
-                  className="text-xs underline"
-                  data-testid="photo-download"
-                >
-                  Download image
-                </a>
-              </div>
-            )}
-          </div>
-        </div>
         <div className="space-y-2">
           <Label htmlFor="region">Demo region</Label>
           <Select
@@ -326,8 +231,8 @@ export function AttestFlow() {
         </div>
 
         <div className="flex gap-3">
-          <Button onClick={submit} disabled={busy} data-testid="submit-evidence">
-            Verify & create passkey
+          <Button onClick={startVerification} disabled={busy} data-testid="start-capture">
+            Verify your age
           </Button>
           <Button
             onClick={reauthenticate}

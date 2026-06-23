@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { AA_URL, RP_TOKEN, bearer } from "./support/aa";
 
 const RP_URL = "http://localhost:3000";
+const AA_ORIGIN = process.env.NEXT_PUBLIC_AA_ORIGIN ?? "http://localhost:3001";
 
 // The RP must not be the key-distribution channel: a malicious RP that handed
 // the browser its own key could decrypt the evidence. So /api/attest/material
@@ -32,4 +33,17 @@ test("AA serves the public key directly (CORS), never the private key", async ({
   expect(body.publicKeyJwk).toBeTruthy();
   expect(body.nonce).toBeTruthy();
   expect(body).not.toHaveProperty("privateKeyJwk");
+});
+
+// Evidence capture happens in a popup on the AA origin — the RP page cannot
+// script into it (same-origin policy), so plaintext never exists in RP context.
+test("evidence is captured on the AA origin, not the RP", async ({ page }) => {
+  await page.goto(RP_URL);
+  const popupPromise = page.waitForEvent("popup");
+  await page.getByTestId("start-capture").click();
+  const popup = await popupPromise;
+
+  await popup.waitForURL(/\/capture/);
+  expect(new URL(popup.url()).origin).toBe(AA_ORIGIN);
+  await expect(popup.getByTestId("claimed-name")).toBeVisible();
 });

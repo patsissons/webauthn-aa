@@ -1,8 +1,8 @@
 /**
- * Browser-side envelope encryption (doc A.9). Mirrors the AA's open/seal scheme
- * exactly: random AES-256-GCM content key encrypts JSON(evidence); the raw key
- * is wrapped (RSA-OAEP-256) to the AA's single-use public key. WebCrypto only —
- * no crypto dependencies in the browser.
+ * Browser-side envelope encryption (doc A.9), run on the AA origin's capture
+ * page. Mirrors the AA server open/seal scheme exactly: random AES-256-GCM
+ * content key encrypts JSON(evidence); the raw key is wrapped (RSA-OAEP-256) to
+ * the single-use public key. WebCrypto only — no crypto dependencies.
  */
 import type { EvidenceEnvelope, EvidencePlaintext } from "@webauthn-aa/contracts";
 

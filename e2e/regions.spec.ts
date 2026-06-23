@@ -1,23 +1,7 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 import { addVirtualAuthenticator } from "./support/webauthn";
-import { approvePendingByName, PNG_BUFFER } from "./support/aa";
-
-async function submitEvidence(
-  page: Page,
-  opts: { name: string; birthDate: string; region: string },
-) {
-  await page.goto("/");
-  await page.getByTestId("region").selectOption(opts.region);
-  await page.getByTestId("claimed-name").fill(opts.name);
-  await page.getByTestId("birth-date").fill(opts.birthDate);
-  await page.getByTestId("photo").setInputFiles({
-    name: "id.png",
-    mimeType: "image/png",
-    buffer: PNG_BUFFER,
-  });
-  await page.getByTestId("submit-evidence").click();
-  await expect(page.getByTestId("status-waiting")).toBeVisible();
-}
+import { approvePendingByName } from "./support/aa";
+import { submitEvidence } from "./support/rp";
 
 // Scenario 3: an age-28 device attested under Region 1 is still authorized when
 // the dropdown is set to Region 2 (membership lookup, no re-attestation).
