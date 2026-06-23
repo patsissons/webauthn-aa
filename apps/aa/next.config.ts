@@ -8,8 +8,19 @@ const repoRoot = join(process.cwd(), "..", "..");
 loadEnv({ path: join(repoRoot, ".env") });
 loadEnv({ path: join(repoRoot, ".env.local"), override: true });
 
+const rpOrigin = process.env.NEXT_PUBLIC_RP_ORIGIN ?? "http://localhost:3000";
+
 const nextConfig: NextConfig = {
   transpilePackages: ["@webauthn-aa/contracts", "@webauthn-aa/constraints"],
+  async headers() {
+    // Allow ONLY the RP origin to embed the capture page in a dialog iframe.
+    return [
+      {
+        source: "/capture",
+        headers: [{ key: "Content-Security-Policy", value: `frame-ancestors 'self' ${rpOrigin}` }],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

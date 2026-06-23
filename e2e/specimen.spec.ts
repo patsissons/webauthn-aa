@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { addVirtualAuthenticator } from "./support/webauthn";
 import { approvePendingByName } from "./support/aa";
+import { CAPTURE_FRAME } from "./support/rp";
 
 // The specimen-ID generator (now on the AA capture page) produces evidence the
 // AA accepts, and the RP region dropdown shows the human-readable age constraint.
@@ -12,18 +13,17 @@ test("specimen generator + readable region constraints", async ({ page, request 
   await expect(page.getByTestId("region")).toContainText("age ≥ 18");
   await expect(page.getByTestId("region")).toContainText("age ≥ 21");
 
-  // Open the AA-origin capture popup and generate an adult specimen there.
-  const popupPromise = page.waitForEvent("popup");
+  // Open the AA-origin capture dialog and generate an adult specimen in the frame.
   await page.getByTestId("start-capture").click();
-  const popup = await popupPromise;
+  const frame = page.frameLocator(CAPTURE_FRAME);
 
-  await popup.getByTestId("gen-adult").click();
-  await expect(popup.getByTestId("photo-preview")).toBeVisible();
-  await expect(popup.getByTestId("birth-date")).toHaveValue("1995-03-14");
+  await frame.getByTestId("gen-adult").click();
+  await expect(frame.getByTestId("photo-preview")).toBeVisible();
+  await expect(frame.getByTestId("birth-date")).toHaveValue("1995-03-14");
 
   const name = `AVA ADULTSON ${Date.now()}`;
-  await popup.getByTestId("claimed-name").fill(name);
-  await popup.getByTestId("submit-evidence").click();
+  await frame.getByTestId("claimed-name").fill(name);
+  await frame.getByTestId("submit-evidence").click();
   await expect(page.getByTestId("status-waiting")).toBeVisible();
 
   await approvePendingByName(request, name);

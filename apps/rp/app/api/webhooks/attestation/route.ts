@@ -3,6 +3,7 @@ import { revocationWebhookSchema, WEBHOOK_SIGNATURE_HEADER } from "@webauthn-aa/
 import { rpEnv } from "@/lib/env";
 import { verifyWebhookSignature } from "@/lib/webhook-verify";
 import { invalidateCredentialsByAttestation } from "@/lib/webhooks";
+import { emitSession } from "@/lib/session-bus";
 
 export const runtime = "nodejs";
 
@@ -26,6 +27,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "unsupported event" }, { status: 400 });
   }
 
-  const count = await invalidateCredentialsByAttestation(parsed.data.attestationId);
-  return NextResponse.json({ ok: true, invalidated: count });
+  const credentialIds = await invalidateCredentialsByAttestation(parsed.data.attestationId);
+  // Push a real-time logout to any open session stream for these credentials.
+  for (const credentialId of credentialIds) {
+    emitSession(credentialId, { type: "revoked", attestationId: parsed.data.attestationId });
+  }
+  return NextResponse.json({ ok: true, invalidated: credentialIds.length });
 }

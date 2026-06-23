@@ -67,9 +67,17 @@ The decrypted photo and DOB live only at the AA (`attestation_requests` /
 - **No RP key-substitution MITM**: the browser fetches the encryption public key
   **directly from the AA** (TLS-authenticated); the RP relays only an opaque
   materialId, so a malicious RP _server_ cannot swap in its own key to harvest
-  evidence. Residual limit: the RP still serves the client JS, so a fully
-  malicious RP could exfiltrate plaintext before encryption — defending against
-  that needs a non-RP-served verifier (native app / extension / issuer app).
+  evidence.
+- **AA-owned capture**: evidence is entered + encrypted in a cross-origin iframe
+  on the AA origin, which the RP cannot script into (same-origin policy), so
+  plaintext never exists in RP-controlled code — closing the code-plane MITM too.
+  Trade-off: the iframe dialog (chosen for UX) hides the AA's address bar, so it
+  is weaker against AA-phishing than a popup/redirect would be; a malicious RP
+  could frame a look-alike AA. Strongest form is a redirect to the AA origin or a
+  non-RP-served verifier (native app / extension / issuer app).
+- **Real-time revocation**: an authenticated client holds an SSE session; the
+  revocation webhook pushes an immediate logout (no reload), with TTL expiry as
+  the backstop.
 - **HMAC-signed webhooks**: the RP verifies the signature before invalidating a binding.
 - **Documented limitations**: sharing a passkey shares the age proof; location-derived
   region resolution is spoofable (use the `static` resolver for a single-jurisdiction RP).

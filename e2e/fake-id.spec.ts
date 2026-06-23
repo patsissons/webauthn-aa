@@ -55,18 +55,17 @@ async function submitSpecimen(
   opts: { name: string; birthDate: string; dataUrl: string },
 ) {
   await page.goto("/");
-  // Evidence is captured in the AA-origin popup, not on the RP page.
-  const popupPromise = page.waitForEvent("popup");
+  // Evidence is captured in the AA-origin iframe dialog, not on the RP page.
   await page.getByTestId("start-capture").click();
-  const popup = await popupPromise;
-  await popup.getByTestId("claimed-name").fill(opts.name);
-  await popup.getByTestId("birth-date").fill(opts.birthDate);
-  await popup.getByTestId("photo").setInputFiles({
+  const frame = page.frameLocator('[data-testid="capture-iframe"]');
+  await frame.getByTestId("claimed-name").fill(opts.name);
+  await frame.getByTestId("birth-date").fill(opts.birthDate);
+  await frame.getByTestId("photo").setInputFiles({
     name: "id.svg",
     mimeType: "image/svg+xml",
     buffer: bufferFromDataUrl(opts.dataUrl),
   });
-  await popup.getByTestId("submit-evidence").click();
+  await frame.getByTestId("submit-evidence").click();
   await expect(page.getByTestId("status-waiting")).toBeVisible();
 }
 

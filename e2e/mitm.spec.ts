@@ -35,15 +35,21 @@ test("AA serves the public key directly (CORS), never the private key", async ({
   expect(body).not.toHaveProperty("privateKeyJwk");
 });
 
-// Evidence capture happens in a popup on the AA origin — the RP page cannot
-// script into it (same-origin policy), so plaintext never exists in RP context.
+// Evidence capture happens in a cross-origin iframe on the AA origin — the RP
+// page cannot script into it (same-origin policy), so plaintext never exists in
+// RP context.
 test("evidence is captured on the AA origin, not the RP", async ({ page }) => {
   await page.goto(RP_URL);
-  const popupPromise = page.waitForEvent("popup");
   await page.getByTestId("start-capture").click();
-  const popup = await popupPromise;
 
-  await popup.waitForURL(/\/capture/);
-  expect(new URL(popup.url()).origin).toBe(AA_ORIGIN);
-  await expect(popup.getByTestId("claimed-name")).toBeVisible();
+  const iframe = page.locator('[data-testid="capture-iframe"]');
+  await expect(iframe).toBeVisible();
+  const src = (await iframe.getAttribute("src")) ?? "";
+  expect(new URL(src).origin).toBe(AA_ORIGIN);
+  expect(src).toContain("/capture");
+
+  // The form lives in the cross-origin frame, not the RP DOM.
+  await expect(
+    page.frameLocator('[data-testid="capture-iframe"]').getByTestId("claimed-name"),
+  ).toBeVisible();
 });

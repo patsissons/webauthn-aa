@@ -20,6 +20,15 @@ import { Badge } from "@/components/ui/badge";
 // postMessage ONLY the ciphertext envelope back to the validated RP origin.
 const ALLOWED_RP_ORIGIN = process.env.NEXT_PUBLIC_RP_ORIGIN ?? "";
 
+// The RP host window — an iframe parent (dialog) or a popup opener. Either way
+// it is cross-origin and cannot read this page's DOM (same-origin policy).
+function hostWindow(): Window | null {
+  if (typeof window === "undefined") return null;
+  if (window.parent && window.parent !== window) return window.parent;
+  if (window.opener) return window.opener as Window;
+  return null;
+}
+
 type State =
   | { kind: "loading" }
   | { kind: "ready"; publicKeyJwk: JsonWebKey; nonce: string }
@@ -44,7 +53,7 @@ export default function CapturePage() {
     setRegion(params.get("region") ?? "");
     ctx.current = { materialId, rpOrigin };
 
-    if (!window.opener) {
+    if (!hostWindow()) {
       setState({ kind: "error", message: "Open this from the relying party, not directly." });
       return;
     }
@@ -89,8 +98,9 @@ export default function CapturePage() {
   }
 
   function cancel() {
-    if (window.opener && ctx.current.rpOrigin) {
-      window.opener.postMessage({ type: "evidence-cancelled" }, ctx.current.rpOrigin);
+    const host = hostWindow();
+    if (host && ctx.current.rpOrigin) {
+      host.postMessage({ type: "evidence-cancelled" }, ctx.current.rpOrigin);
     }
     window.close();
   }
@@ -109,7 +119,7 @@ export default function CapturePage() {
         claimedBirthDate: birthDate,
       });
       // Only ciphertext leaves the AA origin.
-      window.opener.postMessage(
+      hostWindow()?.postMessage(
         {
           type: "evidence-envelope",
           payload: { materialId: ctx.current.materialId, nonce: state.nonce, ...envelope },
