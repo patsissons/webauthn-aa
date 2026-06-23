@@ -1,5 +1,5 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PasskeyDemo } from "@/components/passkey-demo";
 
 export default function Home() {
   return (
@@ -12,19 +12,7 @@ export default function Home() {
           sees decrypted evidence — only the attributes its AA token is scoped to.
         </p>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Scaffold ready</CardTitle>
-          <CardDescription>Phase 0 complete. WebAuthn flows land in Phase 1.</CardDescription>
-        </CardHeader>
-        <CardContent className="text-sm text-[var(--color-muted-foreground)]">
-          <ul className="list-inside list-disc space-y-1">
-            <li>RP web app on :3000</li>
-            <li>AA web app on :3001</li>
-            <li>PocketBase RP on :8090, AA on :8091</li>
-          </ul>
-        </CardContent>
-      </Card>
+      <PasskeyDemo />
     </main>
   );
 }
