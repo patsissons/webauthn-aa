@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ageModule, ageFromBirthDate } from "./index";
+import { ageModule, ageFromBirthDate, describeAge } from "./index";
 
 const evalAge = (config: unknown, age: number) => ageModule.compile(config).evaluate({ age }).pass;
 
@@ -94,6 +94,47 @@ describe("age module — all/any combinators", () => {
     const c = ageModule.compile({ op: ">=", value: 18 });
     expect(c.evaluate({}).pass).toBe(false);
     expect(c.evaluate({ age: "old" }).pass).toBe(false);
+  });
+});
+
+describe("describeAge — human-readable summaries", () => {
+  it("formats simple thresholds with comparison symbols", () => {
+    expect(describeAge({ op: ">=", value: 18 })).toBe("age ≥ 18");
+    expect(describeAge({ op: "<", value: 13 })).toBe("age < 13");
+    expect(describeAge({ op: "==", value: 21 })).toBe("age = 21");
+    expect(describeAge({ op: "!=", value: 21 })).toBe("age ≠ 21");
+  });
+
+  it("joins combinators with and/or and parenthesizes nested groups", () => {
+    expect(
+      describeAge({
+        all: [
+          { op: ">=", value: 18 },
+          { op: "<", value: 21 },
+        ],
+      }),
+    ).toBe("age ≥ 18 and age < 21");
+    expect(
+      describeAge({
+        any: [
+          { op: "<", value: 13 },
+          { op: ">", value: 65 },
+        ],
+      }),
+    ).toBe("age < 13 or age > 65");
+    expect(
+      describeAge({
+        any: [
+          {
+            all: [
+              { op: ">=", value: 18 },
+              { op: "<", value: 21 },
+            ],
+          },
+          { op: ">", value: 65 },
+        ],
+      }),
+    ).toBe("(age ≥ 18 and age < 21) or age > 65");
   });
 });
 

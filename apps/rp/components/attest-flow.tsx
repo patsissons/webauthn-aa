@@ -3,6 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser";
 import { sealEvidence } from "@/lib/envelope-client";
+import {
+  fakeIdDataUrl,
+  ADULT_SPECIMEN_OPTS,
+  MINOR_SPECIMEN_OPTS,
+  type FakeIdOptions,
+} from "@/lib/fake-id";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,12 +28,17 @@ type Phase =
 interface RegionOption {
   id: string;
   label: string;
+  summary?: string;
 }
 
 const FALLBACK_REGIONS: RegionOption[] = [
-  { id: "region-1", label: "Region 1" },
-  { id: "region-2", label: "Region 2" },
+  { id: "region-1", label: "Region 1", summary: "age ≥ 18" },
+  { id: "region-2", label: "Region 2", summary: "age ≥ 21" },
 ];
+
+function regionOptionLabel(r: RegionOption): string {
+  return r.summary ? `${r.label} — ${r.summary}` : r.label;
+}
 
 async function postJson(url: string, body?: unknown) {
   const res = await fetch(url, {
@@ -49,6 +60,7 @@ export function AttestFlow() {
   const [demoRegion, setDemoRegion] = useState("region-1");
   const photoRef = useRef<string | null>(null);
   const [photoName, setPhotoName] = useState("");
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [regions, setRegions] = useState<RegionOption[]>(FALLBACK_REGIONS);
   const budgetRef = useRef({ totalBudgetMs: 180_000, pollIntervalMs: 2000 });
 
@@ -67,14 +79,33 @@ export function AttestFlow() {
       .catch(() => {});
   }, []);
 
+  function applyPhoto(dataUrl: string, name: string) {
+    photoRef.current = dataUrl;
+    setPhotoPreview(dataUrl);
+    setPhotoName(name);
+  }
+
   function onPhoto(file: File | undefined) {
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
-      photoRef.current = reader.result as string;
-      setPhotoName(file.name);
-    };
+    reader.onload = () => applyPhoto(reader.result as string, file.name);
     reader.readAsDataURL(file);
+  }
+
+  // Generate an obviously-fake SPECIMEN ID card and use it as the evidence
+  // photo, syncing the claimed name + DOB so the reviewer sees a coherent card.
+  function useSpecimen(opts: FakeIdOptions) {
+    setClaimedName(opts.name);
+    setBirthDate(opts.dob);
+    applyPhoto(fakeIdDataUrl(opts), `specimen-${opts.dob}.svg`);
+  }
+
+  function generateFromDetails() {
+    if (!claimedName.trim() || !birthDate) {
+      setPhase({ kind: "error", message: "Enter a name and date of birth first." });
+      return;
+    }
+    applyPhoto(fakeIdDataUrl({ name: claimedName.trim(), dob: birthDate }), "specimen-id.svg");
   }
 
   async function pollUntilDecision(requestId: string): Promise<void> {
@@ -200,6 +231,62 @@ export function AttestFlow() {
             disabled={busy}
           />
           {photoName && <p className="text-xs text-[var(--color-muted-foreground)]">{photoName}</p>}
+
+          <div className="rounded-md border border-dashed border-[var(--color-border)] p-3">
+            <p className="mb-2 text-xs font-medium text-[var(--color-muted-foreground)]">
+              No ID handy? Generate an obviously-fake SPECIMEN card for the demo.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                disabled={busy}
+                data-testid="gen-adult"
+                onClick={() => useSpecimen(ADULT_SPECIMEN_OPTS)}
+              >
+                Adult specimen
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                disabled={busy}
+                data-testid="gen-minor"
+                onClick={() => useSpecimen(MINOR_SPECIMEN_OPTS)}
+              >
+                Minor specimen
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={busy}
+                data-testid="gen-from-details"
+                onClick={generateFromDetails}
+              >
+                From entered details
+              </Button>
+            </div>
+            {photoPreview && (
+              <div className="mt-3 space-y-1">
+                <img
+                  src={photoPreview}
+                  alt="ID evidence preview"
+                  data-testid="photo-preview"
+                  className="max-h-40 w-full rounded-md border border-[var(--color-border)] object-contain"
+                />
+                <a
+                  href={photoPreview}
+                  download={photoName || "specimen-id.svg"}
+                  className="text-xs underline"
+                  data-testid="photo-download"
+                >
+                  Download image
+                </a>
+              </div>
+            )}
+          </div>
         </div>
         <div className="space-y-2">
           <Label htmlFor="region">Demo region</Label>
@@ -212,7 +299,7 @@ export function AttestFlow() {
           >
             {regions.map((r) => (
               <option key={r.id} value={r.id}>
-                {r.label}
+                {regionOptionLabel(r)}
               </option>
             ))}
           </Select>

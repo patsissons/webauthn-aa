@@ -2,7 +2,7 @@ import "server-only";
 import { readFileSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import { regionsConfigSchema, type Region } from "@webauthn-aa/contracts";
-import { getConstraintModule } from "@webauthn-aa/constraints";
+import { getConstraintModule, describeAge } from "@webauthn-aa/constraints";
 import { rpEnv } from "./env";
 import { pickRegion } from "./region-resolver";
 
@@ -10,7 +10,16 @@ interface CompiledRegion {
   id: string;
   label: string;
   constraintSetId: string;
+  /** Human-readable constraint, e.g. "age ≥ 18". */
+  summary: string;
   evaluate: (minimized: Record<string, unknown>) => { pass: boolean; reason?: string };
+}
+
+export interface RegionSummary {
+  id: string;
+  label: string;
+  constraintSetId: string;
+  summary: string;
 }
 
 let cache: CompiledRegion[] | null = null;
@@ -32,6 +41,7 @@ export function loadRegions(): CompiledRegion[] {
       id,
       label: entry.label,
       constraintSetId: compiled.setId,
+      summary: describeAge(entry.config),
       evaluate: compiled.evaluate,
     };
   });
@@ -43,6 +53,16 @@ export function listRegions(): Region[] {
     id: r.id,
     label: r.label,
     constraintSetId: r.constraintSetId,
+  }));
+}
+
+/** Region listing with a human-readable constraint summary, for the demo UI. */
+export function listRegionSummaries(): RegionSummary[] {
+  return loadRegions().map((r) => ({
+    id: r.id,
+    label: r.label,
+    constraintSetId: r.constraintSetId,
+    summary: r.summary,
   }));
 }
 

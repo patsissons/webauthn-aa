@@ -1,7 +1,7 @@
 import type { ConstraintModule } from "@webauthn-aa/contracts";
 import { ageModule } from "./age";
 
-export { ageModule } from "./age";
+export { ageModule, describeAge } from "./age";
 
 const MODULES: Record<string, ConstraintModule> = {
   [ageModule.id]: ageModule,

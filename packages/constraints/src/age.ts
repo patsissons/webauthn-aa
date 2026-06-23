@@ -49,6 +49,28 @@ function setIdFor(expr: AgeExpr): string {
   return `age_any(${expr.any.map(setIdFor).join(",")})`;
 }
 
+const OP_TEXT: Record<CompareOp, string> = {
+  ">=": "≥",
+  ">": ">",
+  "<=": "≤",
+  "<": "<",
+  "==": "=",
+  "!=": "≠",
+};
+
+function describeExpr(expr: AgeExpr, top = true): string {
+  if ("op" in expr) return `age ${OP_TEXT[expr.op]} ${expr.value}`;
+  const parts = "all" in expr ? expr.all : expr.any;
+  const joiner = "all" in expr ? " and " : " or ";
+  const text = parts.map((e) => describeExpr(e, false)).join(joiner);
+  return top ? text : `(${text})`;
+}
+
+/** Human-readable summary of an age expression, e.g. "age ≥ 18". */
+export function describeAge(config: unknown): string {
+  return describeExpr(ageExprSchema.parse(config));
+}
+
 export const ageModule: ConstraintModule = {
   id: "age",
   version: "1.0.0",
