@@ -26,9 +26,7 @@ export async function requestEncryptionMaterial(): Promise<EncryptionMaterialRes
   return encryptionMaterialResponseSchema.parse(await res.json());
 }
 
-export async function submitTransform(
-  body: TransformRequest,
-): Promise<{ requestId: string }> {
+export async function submitTransform(body: TransformRequest): Promise<{ requestId: string }> {
   const res = await fetch(`${rpEnv.attestationApiBaseUrl}/api/v1/transform`, {
     method: "POST",
     headers: headers(),

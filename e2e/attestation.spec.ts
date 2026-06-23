@@ -101,14 +101,24 @@ test("transform refuses a replayed (already-used) material", async ({ request })
 
   const first = await request.post(`${AA_URL}/api/v1/transform`, {
     headers: bearer(),
-    data: { materialId: material.materialId, nonce: material.nonce, ...(await seal()), requestedAttributes: ["name", "age"] },
+    data: {
+      materialId: material.materialId,
+      nonce: material.nonce,
+      ...(await seal()),
+      requestedAttributes: ["name", "age"],
+    },
   });
   expect(first.ok()).toBeTruthy();
 
   // Same material, second use must be refused.
   const replay = await request.post(`${AA_URL}/api/v1/transform`, {
     headers: bearer(),
-    data: { materialId: material.materialId, nonce: material.nonce, ...(await seal()), requestedAttributes: ["name", "age"] },
+    data: {
+      materialId: material.materialId,
+      nonce: material.nonce,
+      ...(await seal()),
+      requestedAttributes: ["name", "age"],
+    },
   });
   expect(replay.status()).toBe(400);
 });

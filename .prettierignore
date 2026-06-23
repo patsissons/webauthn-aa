@@ -1,0 +1,12 @@
+# Build artifacts & deps
+node_modules
+**/.next
+**/dist
+.turbo
+
+# Vendored / generated
+bin
+pocketbase
+test-results
+playwright-report
+pnpm-lock.yaml

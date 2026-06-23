@@ -52,8 +52,8 @@ interface RegionResolver {
   resolve(ctx: { request: IncomingRequest; demoOverride?: string }): Promise<Region>;
 }
 interface Region {
-  id: string;            // "region-1"
-  label: string;         // "Region 1"
+  id: string; // "region-1"
+  label: string; // "Region 1"
   constraintSetId: string; // which constraint set this region requires, e.g. "age_gte_18"
 }
 ```
@@ -64,7 +64,7 @@ Region configuration maps a region to the constraint set it requires:
 // regions.json
 {
   "region-1": { "label": "Region 1", "module": "age", "config": { "op": ">=", "value": 18 } },
-  "region-2": { "label": "Region 2", "module": "age", "config": { "op": ">=", "value": 21 } }
+  "region-2": { "label": "Region 2", "module": "age", "config": { "op": ">=", "value": 21 } },
 }
 ```
 
@@ -76,17 +76,17 @@ The engine is module-agnostic. A constraint module declares what minimized data 
 type CompareOp = ">=" | ">" | "<=" | "<" | "==" | "!=";
 type AgeExpr =
   | { op: CompareOp; value: number }
-  | { all: AgeExpr[] }     // AND
-  | { any: AgeExpr[] };    // OR
+  | { all: AgeExpr[] } // AND
+  | { any: AgeExpr[] }; // OR
 
 interface CompiledConstraint {
-  setId: string;                       // stable id stored in the binding, e.g. "age_gte_18"
+  setId: string; // stable id stored in the binding, e.g. "age_gte_18"
   attributeRequests: { name: string; type: "integer" | "string"; derivedFrom?: string }[];
   evaluate(minimized: Record<string, unknown>): { pass: boolean; reason?: string };
 }
 interface ConstraintModule {
-  id: string;       // "age"
-  version: string;  // "1.0.0"
+  id: string; // "age"
+  version: string; // "1.0.0"
   compile(config: unknown): CompiledConstraint;
 }
 ```
@@ -106,7 +106,7 @@ Default disclosure is attribute mode: the module requests the derived integer `a
 
 A hard requirement from the outset: **the challenge (re-authentication) must never evaluate constraints; it confirms the device was attested.** We honor this strictly:
 
-- **At attestation time (handshake):** the RP evaluates *every* configured region's constraint set against the AA-returned `age`, and stores the set of constraint IDs that passed (the device's `satisfiedConstraints`). Registration is *gated* on the resolved region's constraint passing.
+- **At attestation time (handshake):** the RP evaluates _every_ configured region's constraint set against the AA-returned `age`, and stores the set of constraint IDs that passed (the device's `satisfiedConstraints`). Registration is _gated_ on the resolved region's constraint passing.
 - **At re-authentication time (challenge):** the RP resolves the region for the resource being accessed, looks up that region's required `constraintSetId`, and performs a **set-membership check** against the stored `satisfiedConstraints`. No comparison, no recomputation, no AA call.
 
 This keeps re-auth a dumb lookup while letting the demo dropdown authorize an already-attested device against different thresholds. It also means the RP stores derived booleans (passed constraint IDs), not the raw age, which is the more private default. (Alternative: store the integer `age` and evaluate per challenge. Rejected, because it re-evaluates constraints per challenge, violating the stated requirement.)
@@ -151,6 +151,7 @@ This keeps re-auth a dumb lookup while letting the demo dropdown authorize an al
 ### A.11 Data models
 
 **AA**
+
 - `rp_clients`: `{ id, name, bearerTokenHash, allowedAttributes[], webhookUrl, webhookSecret, createdAt }`
 - `encryption_material`: `{ materialId, publicKeyJwk, privateKeyJwk, nonce, rpClientId, expiresAt, usedAt, createdAt }`
 - `attestation_requests` (review queue): `{ id, rpClientId, status(pending|approved|rejected), evidenceImageRef, claimedName, claimedBirthDate, reviewedName, reviewedBirthDate, decidedBy, decidedAt, createdAt }`
@@ -160,6 +161,7 @@ This keeps re-auth a dumb lookup while letting the demo dropdown authorize an al
 Evidence (the decrypted photo) is stored by the AA for audit and revocation. Encrypt-at-rest with an AA-local key is a hardening note; a plain blob/file reference is acceptable for the prototype.
 
 **RP**
+
 - `credentials` (identity is the credential): `{ credentialId, publicKey, signCount, transports, displayName, satisfiedConstraints[], attestationId, attestationExpiresAt, attestationStatus(active|revoked|expired), createdAt }`
 - `pending_registrations`: `{ pendingRegId, regionId, satisfiedConstraints[], attestationId, attestedName, attestationExpiresAt, webauthnChallenge, status, createdAt }`
 - `auth_challenges`: `{ id, challenge, createdAt }`
@@ -188,6 +190,7 @@ Age-gating regimes push relying parties to either collect and store sensitive id
 ### B.2 Goals and non-goals
 
 **Goals**
+
 - Prove the full round trip: unauthenticated to photo evidence to authenticated, then repeat authentication with the existing passkey and no photo.
 - Show the RP never holds decrypted evidence, only scoped attributes (`name`, `age`).
 - Show different jurisdictions enforcing different thresholds (Region 1 `age >= 18`, Region 2 `age >= 21`) via server-side region resolution, controllable by a demo dropdown.
@@ -195,6 +198,7 @@ Age-gating regimes push relying parties to either collect and store sensitive id
 - Demonstrate that AA software running on an arbitrary system can fulfill the role, given a stable contract.
 
 **Non-goals (prototype)**
+
 - Real document forensics, liveness, or fraud detection. Human review stands in for it behind a clean interface.
 - Governance and auditing of AA providers by a regulatory body.
 - Cross-RP credential reuse (single-RP reuse is sufficient; per-RP credentials are inherent to WebAuthn).
@@ -210,6 +214,7 @@ Age-gating regimes push relying parties to either collect and store sensitive id
 ### B.4 Functional requirements
 
 **RP web app**
+
 - Unauthenticated experience: prompts for region-resolved age gating; collects claimed name, date of birth, and a photo; encrypts evidence in-browser; runs the attested-registration flow; shows a "waiting for verification" state while the AA review is pending.
 - Authenticated experience: shows the attested display name and which region thresholds the device satisfies; provides a re-authentication action that uses the passkey only.
 - WebAuthn is the only authentication method; any unauthenticated user becomes authenticated by completing attested registration. Identity equals the WebAuthn credential.
@@ -219,6 +224,7 @@ Age-gating regimes push relying parties to either collect and store sensitive id
 - Enforces TTL: re-auth after expiry fails and routes to re-attestation.
 
 **AA web app and API**
+
 - Implements the AA API contract (encryption material, transform submit, blocking await, outbound revocation webhook).
 - Review queue UI: lists pending requests; opens a request to view the photo beside claimed fields; allows editing the fields; approve and reject buttons. The transform await unblocks on decision.
 - Attestation browser: search and display issued attestations and their status; revoke action.
@@ -286,6 +292,7 @@ Localhost note: WebAuthn works on `localhost`; run RP on `:3000`, AA on `:3001`.
 ### C.3 Environment variables
 
 **RP**
+
 ```bash
 RP_ID=localhost
 RP_NAME="Demo RP"
@@ -308,6 +315,7 @@ DATABASE_URL=file:./rp.db
 ```
 
 **AA**
+
 ```bash
 AA_ORIGIN=http://localhost:3001
 AA_ENCRYPTION_MATERIAL_TTL_MS=300000            # single-use material lifetime

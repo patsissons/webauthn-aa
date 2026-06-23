@@ -67,7 +67,9 @@ async function waitForHealth(url, attempts = 50) {
     try {
       const r = await fetch(`${url}/api/health`);
       if (r.ok) return;
-    } catch {}
+    } catch {
+      // server not up yet; retry after a short delay
+    }
     await sleep(200);
   }
   throw new Error(`server at ${url} did not become healthy`);

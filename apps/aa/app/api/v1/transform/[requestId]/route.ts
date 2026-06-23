@@ -9,10 +9,7 @@ export const runtime = "nodejs";
 
 // GET /v1/transform/:requestId — client-driven status poll (doc decision).
 // Returns quickly: pending | rejected | approved (with scoped attributes + ttl).
-export async function GET(
-  req: Request,
-  { params }: { params: Promise<{ requestId: string }> },
-) {
+export async function GET(req: Request, { params }: { params: Promise<{ requestId: string }> }) {
   const client = await authenticateRp(req);
   if (!client) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 

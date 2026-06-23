@@ -85,7 +85,10 @@ export function AttestFlow() {
       if (res.status === "approved") {
         setPhase({ kind: "waiting", message: "Approved — creating your passkey…" });
         const response = await startRegistration({ optionsJSON: res.options });
-        const fin = await postJson("/api/attest/finish", { pendingRegId: res.pendingRegId, response });
+        const fin = await postJson("/api/attest/finish", {
+          pendingRegId: res.pendingRegId,
+          response,
+        });
         setPhase({
           kind: "authenticated",
           displayName: fin.displayName,
@@ -94,7 +97,8 @@ export function AttestFlow() {
         return;
       }
       if (res.status === "rejected") return setPhase({ kind: "rejected" });
-      if (res.status === "not_eligible") return setPhase({ kind: "not_eligible", region: res.region });
+      if (res.status === "not_eligible")
+        return setPhase({ kind: "not_eligible", region: res.region });
       await sleep(pollIntervalMs);
     }
     setPhase({ kind: "error", message: "Timed out waiting for verification." });
@@ -218,7 +222,12 @@ export function AttestFlow() {
           <Button onClick={submit} disabled={busy} data-testid="submit-evidence">
             Verify & create passkey
           </Button>
-          <Button onClick={reauthenticate} variant="outline" disabled={busy} data-testid="reauth-btn">
+          <Button
+            onClick={reauthenticate}
+            variant="outline"
+            disabled={busy}
+            data-testid="reauth-btn"
+          >
             Re-authenticate
           </Button>
         </div>

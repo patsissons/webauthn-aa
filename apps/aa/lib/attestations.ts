@@ -16,7 +16,10 @@ export async function createAttestation(input: {
 
 export async function getAttestation(id: string): Promise<RecordModel | null> {
   const pb = await getPb();
-  return pb.collection("attestations").getOne(id).catch(() => null);
+  return pb
+    .collection("attestations")
+    .getOne(id)
+    .catch(() => null);
 }
 
 export async function getAttestationByRequest(requestId: string): Promise<RecordModel | null> {
@@ -32,12 +35,12 @@ export async function listAttestations(): Promise<RecordModel[]> {
   return pb.collection("attestations").getFullList({ sort: "-created" });
 }
 
-export async function revokeAttestation(
-  id: string,
-  reason: string,
-): Promise<RecordModel | null> {
+export async function revokeAttestation(id: string, reason: string): Promise<RecordModel | null> {
   const pb = await getPb();
-  const att = await pb.collection("attestations").getOne(id).catch(() => null);
+  const att = await pb
+    .collection("attestations")
+    .getOne(id)
+    .catch(() => null);
   if (!att) return null;
   if (att.status === "revoked") return att;
   return pb.collection("attestations").update(id, {

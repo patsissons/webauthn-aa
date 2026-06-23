@@ -5,13 +5,17 @@ describe("membership-check authorization (re-auth)", () => {
   const satisfied = ["age_gte_18"]; // an age-19 device attested under Region 1
 
   it("authorizes when the required constraint is in satisfiedConstraints", () => {
-    expect(authorizeReauth({ satisfiedConstraints: satisfied, requiredConstraintSetId: "age_gte_18" }).authorized).toBe(
-      true,
-    );
+    expect(
+      authorizeReauth({ satisfiedConstraints: satisfied, requiredConstraintSetId: "age_gte_18" })
+        .authorized,
+    ).toBe(true);
   });
 
   it("denies when the required constraint is not satisfied (no recomputation)", () => {
-    const r = authorizeReauth({ satisfiedConstraints: satisfied, requiredConstraintSetId: "age_gte_21" });
+    const r = authorizeReauth({
+      satisfiedConstraints: satisfied,
+      requiredConstraintSetId: "age_gte_21",
+    });
     expect(r.authorized).toBe(false);
     expect(r.reason).toMatch(/constraint/);
   });

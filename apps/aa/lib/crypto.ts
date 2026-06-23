@@ -66,9 +66,7 @@ export async function sealEvidence(
   ]);
   const iv = globalThis.crypto.getRandomValues(new Uint8Array(12));
   const encoded = new TextEncoder().encode(JSON.stringify(plaintext));
-  const ciphertext = new Uint8Array(
-    await subtle.encrypt({ name: "AES-GCM", iv }, aesKey, encoded),
-  );
+  const ciphertext = new Uint8Array(await subtle.encrypt({ name: "AES-GCM", iv }, aesKey, encoded));
   const rawKey = new Uint8Array(await subtle.exportKey("raw", aesKey));
   const wrappedKey = new Uint8Array(await subtle.encrypt({ name: "RSA-OAEP" }, rsaPub, rawKey));
   return {

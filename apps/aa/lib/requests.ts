@@ -39,7 +39,10 @@ function decodePhoto(dataUrl: string): { bytes: Uint8Array<ArrayBuffer>; mime: s
 
 export async function getRequest(id: string): Promise<RecordModel | null> {
   const pb = await getPb();
-  return pb.collection("attestation_requests").getOne(id).catch(() => null);
+  return pb
+    .collection("attestation_requests")
+    .getOne(id)
+    .catch(() => null);
 }
 
 export async function listRequests(status?: string): Promise<RecordModel[]> {
@@ -76,7 +79,10 @@ export async function getEvidenceImage(
   id: string,
 ): Promise<{ bytes: ArrayBuffer; contentType: string } | null> {
   const pb = await getPb();
-  const rec = await pb.collection("attestation_requests").getOne(id).catch(() => null);
+  const rec = await pb
+    .collection("attestation_requests")
+    .getOne(id)
+    .catch(() => null);
   if (!rec || !rec.evidenceImage) return null;
   const token = await pb.files.getToken();
   const url = pb.files.getURL(rec, rec.evidenceImage as string, { token });

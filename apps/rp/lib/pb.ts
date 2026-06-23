@@ -12,10 +12,9 @@ export async function getPb(): Promise<PocketBase> {
     client.autoCancellation(false);
   }
   if (!client.authStore.isValid) {
-    await client.collection("_superusers").authWithPassword(
-      rpEnv.pbSuperuserEmail,
-      rpEnv.pbSuperuserPassword,
-    );
+    await client
+      .collection("_superusers")
+      .authWithPassword(rpEnv.pbSuperuserEmail, rpEnv.pbSuperuserPassword);
   }
   return client;
 }

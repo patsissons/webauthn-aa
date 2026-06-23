@@ -15,7 +15,10 @@ export async function createMaterial(input: {
 
 export async function getMaterial(id: string): Promise<RecordModel | null> {
   const pb = await getPb();
-  return pb.collection("encryption_material").getOne(id).catch(() => null);
+  return pb
+    .collection("encryption_material")
+    .getOne(id)
+    .catch(() => null);
 }
 
 export async function markMaterialUsed(id: string): Promise<void> {

@@ -57,13 +57,14 @@ writeFileSync(tmpZip, buf);
 mkdirSync(binDir, { recursive: true });
 
 // Unzip using a CLI tool available on macOS/Linux.
-const unzip =
-  spawnSync("unzip", ["-o", tmpZip, "pocketbase", "-d", binDir], { stdio: "inherit" });
+const unzip = spawnSync("unzip", ["-o", tmpZip, "pocketbase", "-d", binDir], { stdio: "inherit" });
 if (unzip.status !== 0) {
   // macOS fallback
   const ditto = spawnSync("ditto", ["-x", "-k", tmpZip, binDir], { stdio: "inherit" });
   if (ditto.status !== 0) {
-    console.error("[get-pocketbase] could not unzip; please extract pocketbase into ./bin manually");
+    console.error(
+      "[get-pocketbase] could not unzip; please extract pocketbase into ./bin manually",
+    );
     process.exit(1);
   }
 }

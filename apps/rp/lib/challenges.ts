@@ -28,7 +28,10 @@ export async function createPendingRegistration(input: {
 
 export async function getPendingRegistration(id: string): Promise<RecordModel | null> {
   const pb = await getPb();
-  return pb.collection("pending_registrations").getOne(id).catch(() => null);
+  return pb
+    .collection("pending_registrations")
+    .getOne(id)
+    .catch(() => null);
 }
 
 export async function consumePendingRegistration(id: string): Promise<void> {
@@ -44,10 +47,16 @@ export async function createAuthChallenge(challenge: string): Promise<RecordMode
 
 export async function getAuthChallenge(id: string): Promise<RecordModel | null> {
   const pb = await getPb();
-  return pb.collection("auth_challenges").getOne(id).catch(() => null);
+  return pb
+    .collection("auth_challenges")
+    .getOne(id)
+    .catch(() => null);
 }
 
 export async function deleteAuthChallenge(id: string): Promise<void> {
   const pb = await getPb();
-  await pb.collection("auth_challenges").delete(id).catch(() => {});
+  await pb
+    .collection("auth_challenges")
+    .delete(id)
+    .catch(() => {});
 }

@@ -7,10 +7,10 @@ const PNG_B64 = TINY_PNG_DATA_URL.split(",")[1];
 async function approvePending(request: APIRequestContext, claimedName: string) {
   // Reviewer step, driven programmatically (doc B.5: reviewer driven by test).
   for (let i = 0; i < 30; i++) {
-    const list = await (
-      await request.get(`${AA_URL}/api/review/list?status=pending`)
-    ).json();
-    const match = (list.requests ?? []).find((r: { claimedName: string }) => r.claimedName === claimedName);
+    const list = await (await request.get(`${AA_URL}/api/review/list?status=pending`)).json();
+    const match = (list.requests ?? []).find(
+      (r: { claimedName: string }) => r.claimedName === claimedName,
+    );
     if (match) {
       const res = await request.post(`${AA_URL}/api/review/${match.id}`, {
         data: { action: "approve" },

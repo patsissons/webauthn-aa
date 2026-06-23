@@ -69,4 +69,7 @@ The decrypted photo and DOB live only at the AA (`attestation_requests` /
   region resolution is spoofable (use the `static` resolver for a single-jurisdiction RP).
 - **Deferred hardening**: stored evidence is a plain blob (encrypt-at-rest is a noted
   hardening step); no per-attribute TTLs; no blind tokens (per-RP correlation is accepted).
+
+```
+
 ```

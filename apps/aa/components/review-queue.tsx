@@ -76,7 +76,9 @@ export function ReviewQueue() {
               data-testid={`review-item-${r.id}`}
               onClick={() => select(r)}
               className={`w-full rounded-md border p-3 text-left text-sm transition-colors hover:bg-[var(--color-accent)] ${
-                selected?.id === r.id ? "border-[var(--color-primary)]" : "border-[var(--color-border)]"
+                selected?.id === r.id
+                  ? "border-[var(--color-primary)]"
+                  : "border-[var(--color-border)]"
               }`}
             >
               <div className="font-medium">{r.claimedName}</div>
@@ -97,7 +99,8 @@ export function ReviewQueue() {
           {selected ? (
             <>
               {selected.hasEvidence && (
-                // eslint-disable-next-line @next/next/no-img-element
+                // Plain <img>: this streams a decrypted, one-off evidence blob
+                // from an API route, not a static asset for next/image.
                 <img
                   src={`/api/review/${selected.id}/evidence`}
                   alt="evidence"
@@ -106,7 +109,12 @@ export function ReviewQueue() {
               )}
               <div className="space-y-2">
                 <Label htmlFor="rev-name">Name</Label>
-                <Input id="rev-name" data-testid="rev-name" value={name} onChange={(e) => setName(e.target.value)} />
+                <Input
+                  id="rev-name"
+                  data-testid="rev-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="rev-dob">Date of birth</Label>

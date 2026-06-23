@@ -10,10 +10,7 @@ import { z } from "zod";
 export const compareOpSchema = z.enum([">=", ">", "<=", "<", "==", "!="]);
 export type CompareOp = z.infer<typeof compareOpSchema>;
 
-export type AgeExpr =
-  | { op: CompareOp; value: number }
-  | { all: AgeExpr[] }
-  | { any: AgeExpr[] };
+export type AgeExpr = { op: CompareOp; value: number } | { all: AgeExpr[] } | { any: AgeExpr[] };
 
 export const ageExprSchema: z.ZodType<AgeExpr> = z.lazy(() =>
   z.union([

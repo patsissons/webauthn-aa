@@ -3,7 +3,11 @@ import { signWebhookBody, verifyWebhookSignature } from "./webhook-verify";
 
 describe("HMAC webhook verification", () => {
   const secret = "shared-webhook-secret";
-  const body = JSON.stringify({ event: "revoked", attestationId: "att_1", occurredAt: "2026-06-23T00:00:00Z" });
+  const body = JSON.stringify({
+    event: "revoked",
+    attestationId: "att_1",
+    occurredAt: "2026-06-23T00:00:00Z",
+  });
 
   it("verifies a correctly signed body", () => {
     const sig = signWebhookBody(body, secret);

@@ -31,9 +31,15 @@ export async function enqueueRevocationWebhook(attestation: RecordModel): Promis
 /** Deliver one job; on failure apply exponential backoff (mirrors the cron). */
 export async function deliverJob(jobId: string): Promise<boolean> {
   const pb = await getPb();
-  const job = await pb.collection("webhook_jobs").getOne(jobId).catch(() => null);
+  const job = await pb
+    .collection("webhook_jobs")
+    .getOne(jobId)
+    .catch(() => null);
   if (!job || job.status === "delivered") return false;
-  const client = await pb.collection("rp_clients").getOne(job.rpClientId).catch(() => null);
+  const client = await pb
+    .collection("rp_clients")
+    .getOne(job.rpClientId)
+    .catch(() => null);
   if (!client || !client.webhookUrl) return false;
 
   const body = JSON.stringify(job.payload);
