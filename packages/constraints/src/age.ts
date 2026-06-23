@@ -1,0 +1,70 @@
+import {
+  ageExprSchema,
+  type AgeExpr,
+  type CompareOp,
+  type CompiledConstraint,
+  type ConstraintModule,
+} from "@webauthn-aa/contracts";
+
+function compare(op: CompareOp, a: number, b: number): boolean {
+  switch (op) {
+    case ">=":
+      return a >= b;
+    case ">":
+      return a > b;
+    case "<=":
+      return a <= b;
+    case "<":
+      return a < b;
+    case "==":
+      return a === b;
+    case "!=":
+      return a !== b;
+  }
+}
+
+function evalExpr(expr: AgeExpr, age: number): boolean {
+  if ("op" in expr) return compare(expr.op, age, expr.value);
+  if ("all" in expr) return expr.all.every((e) => evalExpr(e, age));
+  return expr.any.some((e) => evalExpr(e, age));
+}
+
+/**
+ * Build a stable, human-readable setId from an age expression. The common case
+ * (`{op,value}`) yields ids like "age_gte_18"; nested expressions get a
+ * deterministic structural id so the same policy always maps to the same id.
+ */
+const OP_SLUG: Record<CompareOp, string> = {
+  ">=": "gte",
+  ">": "gt",
+  "<=": "lte",
+  "<": "lt",
+  "==": "eq",
+  "!=": "ne",
+};
+
+function setIdFor(expr: AgeExpr): string {
+  if ("op" in expr) return `age_${OP_SLUG[expr.op]}_${expr.value}`;
+  if ("all" in expr) return `age_all(${expr.all.map(setIdFor).join(",")})`;
+  return `age_any(${expr.any.map(setIdFor).join(",")})`;
+}
+
+export const ageModule: ConstraintModule = {
+  id: "age",
+  version: "1.0.0",
+  compile(config: unknown): CompiledConstraint {
+    const expr = ageExprSchema.parse(config);
+    return {
+      setId: setIdFor(expr),
+      attributeRequests: [{ name: "age", type: "integer", derivedFrom: "birthDate" }],
+      evaluate(minimized: Record<string, unknown>) {
+        const age = minimized.age;
+        if (typeof age !== "number" || !Number.isFinite(age)) {
+          return { pass: false, reason: "missing or non-numeric age" };
+        }
+        const pass = evalExpr(expr, age);
+        return pass ? { pass } : { pass, reason: `age ${age} fails ${setIdFor(expr)}` };
+      },
+    };
+  },
+};

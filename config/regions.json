@@ -1,0 +1,4 @@
+{
+  "region-1": { "label": "Region 1", "module": "age", "config": { "op": ">=", "value": 18 } },
+  "region-2": { "label": "Region 2", "module": "age", "config": { "op": ">=", "value": 21 } }
+}

@@ -1,0 +1,32 @@
+{
+  "name": "webauthn-aa",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "postinstall": "node scripts/get-pocketbase.mjs",
+    "predev": "node scripts/get-pocketbase.mjs && node scripts/seed.mjs",
+    "dev": "concurrently -n pb-rp,pb-aa,rp,aa -c blue,magenta,green,yellow \"pnpm dev:pb:rp\" \"pnpm dev:pb:aa\" \"pnpm dev:rp\" \"pnpm dev:aa\"",
+    "dev:pb:rp": "bin/pocketbase serve --dir pocketbase/rp/pb_data --migrationsDir pocketbase/rp/pb_migrations --hooksDir pocketbase/rp/pb_hooks --http 127.0.0.1:8090",
+    "dev:pb:aa": "bin/pocketbase serve --dir pocketbase/aa/pb_data --migrationsDir pocketbase/aa/pb_migrations --hooksDir pocketbase/aa/pb_hooks --http 127.0.0.1:8091",
+    "dev:rp": "pnpm --filter @webauthn-aa/rp dev",
+    "dev:aa": "pnpm --filter @webauthn-aa/aa dev",
+    "seed": "node scripts/seed.mjs",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2",
+    "@playwright/test": "^1.50.0",
+    "dotenv": "^16.4.7",
+    "pocketbase": "^0.26.0"
+  }
+}

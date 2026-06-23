@@ -1,0 +1,36 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# secrets
+.env.local
+.env.*.local
+
+# pocketbase binary + local data
+bin/
+pocketbase/*/pb_data/
+
+# next.js
+.next/
+out/
+next-env.d.ts
+
+# builds
+dist/
+*.tsbuildinfo
+.turbo/
+
+# test artifacts
+coverage/
+playwright-report/
+test-results/
+.playwright/
+
+# sqlite
+*.db
+*.db-shm
+*.db-wal
+
+# os / editor
+.DS_Store
+*.log
