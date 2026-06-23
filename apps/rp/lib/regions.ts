@@ -4,6 +4,7 @@ import { isAbsolute, join } from "node:path";
 import { regionsConfigSchema, type Region } from "@webauthn-aa/contracts";
 import { getConstraintModule } from "@webauthn-aa/constraints";
 import { rpEnv } from "./env";
+import { pickRegion } from "./region-resolver";
 
 interface CompiledRegion {
   id: string;
@@ -64,11 +65,13 @@ export function evaluateAllRegions(minimized: { age?: number; name?: string }): 
   return [...passed];
 }
 
-/** Phase 3 baseline resolver; Phase 4 formalizes static/location/demo strategies. */
-export function resolveRegion(opts: { demoOverride?: string } = {}): Region {
-  const fallback = getRegion(rpEnv.rpRegion) ?? listRegions()[0];
-  if (rpEnv.regionResolver === "demo" && opts.demoOverride) {
-    return getRegion(opts.demoOverride) ?? fallback;
-  }
-  return fallback;
+/** Resolve the region via the configured strategy (static | location | demo). */
+export function resolveRegion(ctx: { demoOverride?: string; regionHint?: string } = {}): Region {
+  return pickRegion({
+    kind: rpEnv.regionResolver,
+    rpRegion: rpEnv.rpRegion,
+    regions: listRegions(),
+    demoOverride: ctx.demoOverride,
+    regionHint: ctx.regionHint,
+  });
 }

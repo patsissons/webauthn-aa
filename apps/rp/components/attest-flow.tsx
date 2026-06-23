@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser";
 import { sealEvidence } from "@/lib/envelope-client";
 import { Button } from "@/components/ui/button";
@@ -14,13 +14,19 @@ type Phase =
   | { kind: "evidence" }
   | { kind: "waiting"; message: string }
   | { kind: "authenticated"; displayName: string; satisfiedConstraints: string[] }
+  | { kind: "denied"; region?: { label: string }; reason?: string }
   | { kind: "not_eligible"; region?: { label: string } }
   | { kind: "rejected" }
   | { kind: "error"; message: string };
 
-const REGIONS = [
-  { id: "region-1", label: "Region 1 (age ≥ 18)" },
-  { id: "region-2", label: "Region 2 (age ≥ 21)" },
+interface RegionOption {
+  id: string;
+  label: string;
+}
+
+const FALLBACK_REGIONS: RegionOption[] = [
+  { id: "region-1", label: "Region 1" },
+  { id: "region-2", label: "Region 2" },
 ];
 
 async function postJson(url: string, body?: unknown) {
@@ -43,6 +49,16 @@ export function AttestFlow() {
   const [demoRegion, setDemoRegion] = useState("region-1");
   const photoRef = useRef<string | null>(null);
   const [photoName, setPhotoName] = useState("");
+  const [regions, setRegions] = useState<RegionOption[]>(FALLBACK_REGIONS);
+
+  useEffect(() => {
+    fetch("/api/regions")
+      .then((r) => r.json())
+      .then((j) => {
+        if (Array.isArray(j.regions) && j.regions.length) setRegions(j.regions);
+      })
+      .catch(() => {});
+  }, []);
 
   function onPhoto(file: File | undefined) {
     if (!file) return;
@@ -106,8 +122,16 @@ export function AttestFlow() {
       setPhase({ kind: "waiting", message: "Verifying passkey…" });
       const { challengeId, options } = await postJson("/api/webauthn/authenticate/options");
       const response = await startAuthentication({ optionsJSON: options });
-      const result = await postJson("/api/webauthn/authenticate/verify", { challengeId, response });
+      const result = await postJson("/api/webauthn/authenticate/verify", {
+        challengeId,
+        response,
+        demoRegion,
+      });
       if (!result.verified) throw new Error("not verified");
+      if (!result.authorized) {
+        setPhase({ kind: "denied", region: result.region, reason: result.reason });
+        return;
+      }
       setPhase({
         kind: "authenticated",
         displayName: result.displayName,
@@ -174,7 +198,7 @@ export function AttestFlow() {
             onChange={(e) => setDemoRegion(e.target.value)}
             disabled={busy}
           >
-            {REGIONS.map((r) => (
+            {regions.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.label}
               </option>
@@ -210,6 +234,12 @@ export function AttestFlow() {
               ))}
             </div>
           </div>
+        )}
+        {phase.kind === "denied" && (
+          <p className="text-sm text-[var(--color-destructive)]" data-testid="status-denied">
+            Access denied{phase.region ? ` for ${phase.region.label}` : ""}
+            {phase.reason ? ` (${phase.reason})` : ""}.
+          </p>
         )}
         {phase.kind === "not_eligible" && (
           <p className="text-sm text-[var(--color-destructive)]" data-testid="status-not-eligible">
