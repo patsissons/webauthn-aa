@@ -1,4 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
+import { config as loadEnv } from "dotenv";
+
+// Make shared secrets (RP<->AA token, webhook secret) available to API-level tests.
+loadEnv({ path: ".env" });
+loadEnv({ path: ".env.local", override: true });
 
 // End-to-end tests drive the full running stack (both Next apps + both
 // PocketBase instances) with a Chromium virtual WebAuthn authenticator.
