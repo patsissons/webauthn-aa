@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { PasskeyDemo } from "@/components/passkey-demo";
+import { AttestFlow } from "@/components/attest-flow";
 
 export default function Home() {
   return (
@@ -12,7 +12,7 @@ export default function Home() {
           sees decrypted evidence — only the attributes its AA token is scoped to.
         </p>
       </div>
-      <PasskeyDemo />
+      <AttestFlow />
     </main>
   );
 }

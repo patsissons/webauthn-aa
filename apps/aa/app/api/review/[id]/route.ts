@@ -46,8 +46,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "request already decided" }, { status: 409 });
   }
 
-  const name = parsed.data.reviewedName ?? rec.reviewedName ?? rec.claimedName;
-  const birthDate = parsed.data.reviewedBirthDate ?? rec.reviewedBirthDate ?? rec.claimedBirthDate;
+  // Use || (not ??) so PocketBase's empty-string defaults fall through to the
+  // claimed values rather than being treated as a present (empty) override.
+  const name = parsed.data.reviewedName || rec.reviewedName || rec.claimedName;
+  const birthDate =
+    parsed.data.reviewedBirthDate || rec.reviewedBirthDate || rec.claimedBirthDate;
 
   if (parsed.data.action === "edit") {
     const updated = await updateReviewFields(id, {
