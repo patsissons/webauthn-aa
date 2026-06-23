@@ -11,6 +11,8 @@ const postSchema = z.object({
   reviewedName: z.string().optional(),
   reviewedBirthDate: z.string().optional(),
   decidedBy: z.string().default("reviewer"),
+  // Optional attested-payload TTL override (demo/testing); defaults to AA_DATA_TTL_MS.
+  ttlMs: z.number().int().positive().optional(),
 });
 
 function summarize(r: Record<string, unknown>) {
@@ -72,13 +74,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     decidedBy: parsed.data.decidedBy,
   });
   const issuedAt = new Date();
+  const ttlMs = parsed.data.ttlMs ?? aaEnv.dataTtlMs;
   await createAttestation({
     requestId: id,
     rpClientId: rec.rpClientId,
     attestedName: name,
     attestedBirthDate: birthDate,
     issuedAt: issuedAt.toISOString(),
-    expiresAt: new Date(issuedAt.getTime() + aaEnv.dataTtlMs).toISOString(),
+    expiresAt: new Date(issuedAt.getTime() + ttlMs).toISOString(),
   });
   return NextResponse.json(summarize(updated as never));
 }

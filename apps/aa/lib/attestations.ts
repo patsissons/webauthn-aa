@@ -31,3 +31,18 @@ export async function listAttestations(): Promise<RecordModel[]> {
   const pb = await getPb();
   return pb.collection("attestations").getFullList({ sort: "-created" });
 }
+
+export async function revokeAttestation(
+  id: string,
+  reason: string,
+): Promise<RecordModel | null> {
+  const pb = await getPb();
+  const att = await pb.collection("attestations").getOne(id).catch(() => null);
+  if (!att) return null;
+  if (att.status === "revoked") return att;
+  return pb.collection("attestations").update(id, {
+    status: "revoked",
+    revokedAt: new Date().toISOString(),
+    revokedReason: reason,
+  });
+}

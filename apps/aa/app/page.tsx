@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { ReviewQueue } from "@/components/review-queue";
+import { AttestationBrowser } from "@/components/attestation-browser";
 
 export default function Home() {
   return (
@@ -13,6 +14,7 @@ export default function Home() {
         </p>
       </div>
       <ReviewQueue />
+      <AttestationBrowser />
     </main>
   );
 }
