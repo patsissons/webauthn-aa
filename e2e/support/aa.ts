@@ -38,6 +38,29 @@ export async function approvePendingByName(
   throw new Error(`pending request for ${claimedName} never appeared`);
 }
 
+/** Reviewer step: reject the pending request by name. */
+export async function rejectPendingByName(
+  request: APIRequestContext,
+  claimedName: string,
+  attempts = 30,
+): Promise<void> {
+  for (let i = 0; i < attempts; i++) {
+    const list = await (await request.get(`${AA_URL}/api/review/list?status=pending`)).json();
+    const match = (list.requests ?? []).find(
+      (r: { claimedName: string }) => r.claimedName === claimedName,
+    );
+    if (match) {
+      const res = await request.post(`${AA_URL}/api/review/${match.id}`, {
+        data: { action: "reject" },
+      });
+      if (!res.ok()) throw new Error(`reject failed: ${res.status()}`);
+      return;
+    }
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  throw new Error(`pending request for ${claimedName} never appeared`);
+}
+
 /** Look up an issued attestation id by attested name (for revocation tests). */
 export async function findAttestationIdByName(
   request: APIRequestContext,

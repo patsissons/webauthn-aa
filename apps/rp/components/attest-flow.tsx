@@ -50,12 +50,19 @@ export function AttestFlow() {
   const photoRef = useRef<string | null>(null);
   const [photoName, setPhotoName] = useState("");
   const [regions, setRegions] = useState<RegionOption[]>(FALLBACK_REGIONS);
+  const budgetRef = useRef({ totalBudgetMs: 180_000, pollIntervalMs: 2000 });
 
   useEffect(() => {
     fetch("/api/regions")
       .then((r) => r.json())
       .then((j) => {
         if (Array.isArray(j.regions) && j.regions.length) setRegions(j.regions);
+      })
+      .catch(() => {});
+    fetch("/api/attest/config")
+      .then((r) => r.json())
+      .then((c) => {
+        if (c?.totalBudgetMs) budgetRef.current = c;
       })
       .catch(() => {});
   }, []);
@@ -71,7 +78,8 @@ export function AttestFlow() {
   }
 
   async function pollUntilDecision(requestId: string): Promise<void> {
-    const deadline = Date.now() + 180_000;
+    const { totalBudgetMs, pollIntervalMs } = budgetRef.current;
+    const deadline = Date.now() + totalBudgetMs;
     while (Date.now() < deadline) {
       const res = await postJson("/api/attest/status", { requestId, demoRegion });
       if (res.status === "approved") {
@@ -87,7 +95,7 @@ export function AttestFlow() {
       }
       if (res.status === "rejected") return setPhase({ kind: "rejected" });
       if (res.status === "not_eligible") return setPhase({ kind: "not_eligible", region: res.region });
-      await sleep(2000);
+      await sleep(pollIntervalMs);
     }
     setPhase({ kind: "error", message: "Timed out waiting for verification." });
   }
