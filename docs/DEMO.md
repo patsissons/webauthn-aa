@@ -64,6 +64,12 @@ The decrypted photo and DOB live only at the AA (`attestation_requests` /
 - **Single-use, nonce-bound material** prevents replaying one user's evidence into
   another registration.
 - **Envelope encryption**: the RP only ever relays ciphertext it cannot decrypt.
+- **No RP key-substitution MITM**: the browser fetches the encryption public key
+  **directly from the AA** (TLS-authenticated); the RP relays only an opaque
+  materialId, so a malicious RP _server_ cannot swap in its own key to harvest
+  evidence. Residual limit: the RP still serves the client JS, so a fully
+  malicious RP could exfiltrate plaintext before encryption — defending against
+  that needs a non-RP-served verifier (native app / extension / issuer app).
 - **HMAC-signed webhooks**: the RP verifies the signature before invalidating a binding.
 - **Documented limitations**: sharing a passkey shares the age proof; location-derived
   region resolution is spoofable (use the `static` resolver for a single-jurisdiction RP).

@@ -53,6 +53,22 @@ async function postJson(url: string, body?: unknown) {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// AA origin compiled into the client bundle (honest client config). The browser
+// uses THIS to fetch the encryption key directly from the AA — never a URL or key
+// supplied by the RP in a per-request response.
+const AA_ORIGIN = process.env.NEXT_PUBLIC_AA_ORIGIN ?? "";
+
+async function fetchAaMaterial(
+  materialId: string,
+): Promise<{ publicKeyJwk: JsonWebKey; nonce: string }> {
+  if (!AA_ORIGIN) throw new Error("AA origin is not configured");
+  const res = await fetch(`${AA_ORIGIN}/api/v1/encryption-material/${materialId}`, {
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`could not fetch AA key (${res.status})`);
+  return res.json();
+}
+
 export function AttestFlow() {
   const [phase, setPhase] = useState<Phase>({ kind: "evidence" });
   const [claimedName, setClaimedName] = useState("");
@@ -142,15 +158,19 @@ export function AttestFlow() {
     }
     try {
       setPhase({ kind: "waiting", message: "Encrypting evidence…" });
-      const material = await postJson("/api/attest/material");
-      const envelope = await sealEvidence(material.publicKeyJwk, {
+      // The RP only relays an opaque materialId; the genuine public key + nonce
+      // are fetched DIRECTLY from the AA (TLS-authenticated) so the RP cannot
+      // substitute its own key to read the evidence.
+      const { materialId } = await postJson("/api/attest/material");
+      const aaMaterial = await fetchAaMaterial(materialId);
+      const envelope = await sealEvidence(aaMaterial.publicKeyJwk, {
         photo: photoRef.current,
         claimedName: claimedName.trim(),
         claimedBirthDate: birthDate,
       });
       const { requestId } = await postJson("/api/attest/submit", {
-        materialId: material.materialId,
-        nonce: material.nonce,
+        materialId,
+        nonce: aaMaterial.nonce,
         ...envelope,
       });
       setPhase({ kind: "waiting", message: "Waiting for verification…" });
