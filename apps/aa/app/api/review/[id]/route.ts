@@ -3,6 +3,7 @@ import { z } from "zod";
 import { decideRequest, getRequest, updateReviewFields } from "@/lib/requests";
 import { createAttestation } from "@/lib/attestations";
 import { emitChange } from "@/lib/event-bus";
+import { deliverDecisionWebhook } from "@/lib/webhook";
 import { aaEnv } from "@/lib/env";
 
 export const runtime = "nodejs";
@@ -66,6 +67,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (parsed.data.action === "reject") {
     const updated = await decideRequest(id, "rejected", { decidedBy: parsed.data.decidedBy });
     emitChange("requests");
+    await deliverDecisionWebhook(rec.rpClientId, id);
     return NextResponse.json(summarize(updated as never));
   }
 
@@ -87,5 +89,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   });
   emitChange("requests");
   emitChange("attestations");
+  await deliverDecisionWebhook(rec.rpClientId, id);
   return NextResponse.json(summarize(updated as never));
 }

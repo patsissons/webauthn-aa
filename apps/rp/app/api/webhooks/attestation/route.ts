@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
-import { revocationWebhookSchema, WEBHOOK_SIGNATURE_HEADER } from "@webauthn-aa/contracts";
+import { attestationWebhookSchema, WEBHOOK_SIGNATURE_HEADER } from "@webauthn-aa/contracts";
 import { rpEnv } from "@/lib/env";
 import { verifyWebhookSignature } from "@/lib/webhook-verify";
 import { invalidateCredentialsByAttestation } from "@/lib/webhooks";
 import { emitSession } from "@/lib/session-bus";
+import { emitDecision } from "@/lib/attest-bus";
 
 export const runtime = "nodejs";
 
 // POST /api/webhooks/attestation — inbound AA webhook. Verify HMAC over the raw
-// body, then invalidate matching bindings on revocation.
+// body, then dispatch: `revoked` invalidates bindings (+ real-time logout);
+// `decision` wakes the waiting status stream for that request.
 export async function POST(req: Request) {
   const body = await req.text();
   const signature = req.headers.get(WEBHOOK_SIGNATURE_HEADER) ?? "";
@@ -22,15 +24,20 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: "invalid body" }, { status: 400 });
   }
-  const parsed = revocationWebhookSchema.safeParse(json);
+  const parsed = attestationWebhookSchema.safeParse(json);
   if (!parsed.success) {
     return NextResponse.json({ error: "unsupported event" }, { status: 400 });
   }
 
-  const credentialIds = await invalidateCredentialsByAttestation(parsed.data.attestationId);
-  // Push a real-time logout to any open session stream for these credentials.
-  for (const credentialId of credentialIds) {
-    emitSession(credentialId, { type: "revoked", attestationId: parsed.data.attestationId });
+  if (parsed.data.event === "revoked") {
+    const credentialIds = await invalidateCredentialsByAttestation(parsed.data.attestationId);
+    for (const credentialId of credentialIds) {
+      emitSession(credentialId, { type: "revoked", attestationId: parsed.data.attestationId });
+    }
+    return NextResponse.json({ ok: true, invalidated: credentialIds.length });
   }
-  return NextResponse.json({ ok: true, invalidated: credentialIds.length });
+
+  // decision
+  emitDecision(parsed.data.requestId);
+  return NextResponse.json({ ok: true });
 }

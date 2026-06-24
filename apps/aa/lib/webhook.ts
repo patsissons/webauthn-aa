@@ -28,6 +28,39 @@ export async function enqueueRevocationWebhook(attestation: RecordModel): Promis
   });
 }
 
+/**
+ * Best-effort immediate "decision" webhook so the RP can resolve its waiting
+ * status stream without polling. No retry/persistence — the RP's stream also
+ * checks status on connect, covering a missed delivery.
+ */
+export async function deliverDecisionWebhook(rpClientId: string, requestId: string): Promise<void> {
+  const pb = await getPb();
+  const client = await pb
+    .collection("rp_clients")
+    .getOne(rpClientId)
+    .catch(() => null);
+  if (!client || !client.webhookUrl) return;
+  const body = JSON.stringify({
+    event: "decision",
+    requestId,
+    occurredAt: new Date().toISOString(),
+  });
+  const signature = signBody(body, client.webhookSecret);
+  try {
+    await fetch(client.webhookUrl, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        [WEBHOOK_SIGNATURE_HEADER]: signature,
+        [WEBHOOK_EVENT_HEADER]: "decision",
+      },
+      body,
+    });
+  } catch {
+    /* best-effort */
+  }
+}
+
 /** Deliver one job; on failure apply exponential backoff (mirrors the cron). */
 export async function deliverJob(jobId: string): Promise<boolean> {
   const pb = await getPb();
