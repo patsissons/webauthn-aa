@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { sealEvidence } from "../apps/aa/lib/crypto";
-import { AA_URL, RP_TOKEN, bearer, TINY_PNG_DATA_URL } from "./support/aa";
+import { AA_URL, RP_TOKEN, bearer, findAttestationIdByName, TINY_PNG_DATA_URL } from "./support/aa";
 
 // The AA reviewer UI (review queue + attestation browser) updates over SSE — no
 // polling. A request created via the API appears live, and approving it moves it
@@ -37,4 +37,11 @@ test("AA reviewer UI updates live over SSE", async ({ page, request }) => {
 
   // Moves live into the attestation browser.
   await expect(page.getByTestId("attestation-browser")).toContainText(name, { timeout: 10_000 });
+
+  // Clicking it loads the read-only audit panel: evidence + attested fields + status chip.
+  const attestationId = await findAttestationIdByName(request, name);
+  await page.getByTestId(`attestation-${attestationId}`).click();
+  await expect(page.getByTestId("audit-name")).toContainText(name);
+  await expect(page.getByTestId("audit-status")).toContainText("active");
+  await expect(page.getByTestId("audit-evidence")).toBeVisible();
 });
