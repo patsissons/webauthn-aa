@@ -30,13 +30,19 @@ ever talks to the AA server-to-server.
 3. **Threshold variation, allowed.** Set the demo dropdown to **Region 2** and click
    **Re-authenticate**. The age-28 device is still authorized (set-membership lookup),
    with no re-attestation.
-4. **Threshold variation, denied.** Repeat scenario 1 with a date of birth that is 18–20
-   (e.g. `2007-01-01`) under Region 1. Then set the dropdown to **Region 2** and
-   re-authenticate: access is **denied** (`age_gte_21` is not in the device's satisfied
-   set), via membership lookup with no recomputation.
-5. **Gate rejection.** Set the dropdown to **Region 2** and submit evidence with a date
-   of birth that is 18–20. After the reviewer approves, the RP gate rejects it at
-   registration ("Not eligible for Region 2") and **no passkey is created**.
+4. **Threshold variation, not eligible.** Repeat scenario 1 with a date of birth that is
+   18–20 (e.g. `2007-01-01`) under Region 1. Then set the dropdown to **Region 2** and
+   re-authenticate: the snapshot misses, the RP does a **lazy AA refresh** (the AA
+   recomputes the age from the DOB it still holds — still under 21), and access shows
+   **not eligible yet**.
+5. **Passkey issued even when not yet eligible.** Set the dropdown to **Region 2** and
+   submit evidence with a date of birth that is 18–20. After approval the RP **still
+   creates the passkey** (registration proves identity), but shows "not eligible for
+   Region 2 yet — your passkey is saved and will work once you qualify." Switch the
+   dropdown to **Region 1** and **Re-authenticate**: the _same_ passkey authorizes,
+   because age ≥ 18 is met. (When the user actually crosses 21, the next re-auth's lazy
+   refresh flips them eligible for Region 2 — no re-attestation, and the RP never learns
+   the DOB.)
 6. **Reviewer rejection.** Submit evidence and **Reject** it on the AA. The applicant sees
    "Not eligible — evidence was rejected"; nothing is persisted.
 7. **Revocation.** After a happy-path registration, open the AA **Issued attestations**
@@ -61,6 +67,13 @@ The decrypted photo and DOB live only at the AA (`attestation_requests` /
 ## Security notes (prototype)
 
 - **Fail-closed.** Any AA error, timeout, or verification failure denies — never grants.
+- **Registration vs. eligibility.** A successful attestation always issues the passkey
+  (it proves identity); whether the user is _eligible_ for a region is decided at
+  authorization. Re-auth is a fast set-membership lookup on the cached snapshot, and on a
+  "not yet eligible" miss it does a **lazy AA refresh** — the AA recomputes the current
+  age from the DOB it still holds. So a near-boundary user isn't locked out: the day they
+  cross the threshold, the next login flips them eligible with no re-attestation and the
+  RP still never learns the DOB.
 - **Single-use, nonce-bound material** prevents replaying one user's evidence into
   another registration.
 - **Envelope encryption**: the RP only ever relays ciphertext it cannot decrypt.

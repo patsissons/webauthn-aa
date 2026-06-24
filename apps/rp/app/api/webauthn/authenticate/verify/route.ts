@@ -4,7 +4,7 @@ import { verifyAuthentication } from "@/lib/webauthn";
 import { getAuthChallenge, deleteAuthChallenge } from "@/lib/challenges";
 import { findCredentialByCredentialId, updateCredentialCounter } from "@/lib/credentials";
 import { resolveRegion } from "@/lib/regions";
-import { authorizeReauth } from "@/lib/authorization";
+import { authorizeWithRefresh } from "@/lib/reauth";
 
 export const runtime = "nodejs";
 
@@ -53,19 +53,11 @@ export async function POST(req: Request) {
   }
   await updateCredentialCounter(credential.id, verification.authenticationInfo.newCounter);
 
-  // Re-auth authorization: resolve the region for the resource and do a pure
-  // set-membership lookup against satisfiedConstraints — no recomputation, no AA
-  // call (doc A.7). TTL/revocation enforcement is layered in Phase 5.
+  // Re-auth authorization: resolve the region, fast set-membership lookup on the
+  // cached snapshot, and on a "not yet eligible" miss, a lazy AA refresh that
+  // recomputes against the device's current age (doc A.7 revisited).
   const region = resolveRegion({ demoOverride: parsed.data.demoRegion });
-  const decision = authorizeReauth({
-    satisfiedConstraints: Array.isArray(credential.satisfiedConstraints)
-      ? credential.satisfiedConstraints
-      : [],
-    requiredConstraintSetId: region.constraintSetId,
-    attestationStatus: credential.attestationStatus,
-    attestationExpiresAt: credential.attestationExpiresAt || undefined,
-    now: new Date(),
-  });
+  const decision = await authorizeWithRefresh(credential, region);
 
   return NextResponse.json({
     verified: true,
@@ -74,6 +66,6 @@ export async function POST(req: Request) {
     displayName: credential.displayName,
     region: { id: region.id, label: region.label },
     requiredConstraint: region.constraintSetId,
-    satisfiedConstraints: credential.satisfiedConstraints ?? [],
+    satisfiedConstraints: decision.satisfiedConstraints,
   });
 }

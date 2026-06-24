@@ -9,7 +9,6 @@ import { bytesToB64u } from "./encoding";
 export type AttestStatus =
   | { status: "pending" }
   | { status: "rejected" }
-  | { status: "not_eligible"; region: { id: string; label: string; constraintSetId: string } }
   | {
       status: "approved";
       pendingRegId: string;
@@ -20,11 +19,12 @@ export type AttestStatus =
     };
 
 /**
- * Resolve the current attestation status for a request and, on AA approval,
- * gate on the resolved region's constraint (doc A.7) — evaluating every region,
- * storing satisfiedConstraints, and minting a pending WebAuthn registration.
- * Throws on any AA error so callers can fail closed. Shared by the POST status
- * endpoint and the SSE stream.
+ * Resolve the current attestation status for a request. On AA approval, the
+ * passkey is ALWAYS issued — registration proves identity and is decoupled from
+ * the age policy (doc A.7 revisited). We evaluate every region against the
+ * attested age and store the resulting satisfiedConstraints snapshot, but the
+ * eligibility decision happens at authorization time (now and, via lazy AA
+ * refresh, as the device ages). Throws on AA error so callers fail closed.
  */
 export async function resolveAttestStatus(args: {
   requestId: string;
@@ -39,10 +39,6 @@ export async function resolveAttestStatus(args: {
   const name = status.attributes.name ?? "User";
   const satisfiedConstraints = evaluateAllRegions({ age });
   const region = resolveRegion({ demoOverride: args.demoRegion });
-
-  if (!satisfiedConstraints.includes(region.constraintSetId)) {
-    return { status: "not_eligible", region };
-  }
 
   const userHandle = bytesToB64u(new Uint8Array(randomBytes(16)));
   const options = await buildRegistrationOptions({ userHandle, userName: name });

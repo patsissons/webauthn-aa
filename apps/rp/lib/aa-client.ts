@@ -48,3 +48,19 @@ export async function getTransformStatus(requestId: string): Promise<TransformSt
   if (!res.ok) throw new Error(`AA transform status failed (${res.status})`);
   return transformStatusResponseSchema.parse(await res.json());
 }
+
+export interface AttestationRefresh {
+  status: "active" | "revoked" | "expired";
+  attributes?: { name?: string; age?: number };
+  ttl?: number;
+}
+
+/** Recompute current eligibility for an existing attestation (DOB stays at AA). */
+export async function refreshAttestation(attestationId: string): Promise<AttestationRefresh> {
+  const res = await fetch(`${rpEnv.attestationApiBaseUrl}/api/v1/attestations/${attestationId}`, {
+    headers: headers(),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`AA attestation refresh failed (${res.status})`);
+  return res.json();
+}

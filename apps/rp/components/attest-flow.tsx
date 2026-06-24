@@ -171,18 +171,22 @@ export function AttestFlow() {
             const fin = await postJson("/api/attest/finish", {
               pendingRegId: res.pendingRegId,
               response,
+              demoRegion,
             });
-            onAuthenticated(
-              {
-                displayName: fin.displayName,
-                satisfiedConstraints: fin.satisfiedConstraints ?? [],
-              },
-              response.id,
-            );
+            // The passkey is always created; whether you're eligible now is separate.
+            if (fin.authorized) {
+              onAuthenticated(
+                {
+                  displayName: fin.displayName,
+                  satisfiedConstraints: fin.satisfiedConstraints ?? [],
+                },
+                response.id,
+              );
+            } else {
+              setPhase({ kind: "not_eligible", region: fin.region });
+            }
           } else if (res.status === "rejected") {
             setPhase({ kind: "rejected" });
-          } else if (res.status === "not_eligible") {
-            setPhase({ kind: "not_eligible", region: res.region });
           } else {
             setPhase({ kind: "error", message: "Attestation failed." });
           }
@@ -252,7 +256,12 @@ export function AttestFlow() {
       });
       if (!result.verified) throw new Error("not verified");
       if (!result.authorized) {
-        setPhase({ kind: "denied", region: result.region, reason: result.reason });
+        // revoked/expired => must re-attest; constraint => not yet eligible.
+        if (result.reason === "revoked" || result.reason === "expired") {
+          setPhase({ kind: "denied", region: result.region, reason: result.reason });
+        } else {
+          setPhase({ kind: "not_eligible", region: result.region });
+        }
         return;
       }
       onAuthenticated(
@@ -362,10 +371,11 @@ export function AttestFlow() {
           )}
           {phase.kind === "not_eligible" && (
             <p
-              className="text-sm text-[var(--color-destructive)]"
+              className="text-sm text-[var(--color-muted-foreground)]"
               data-testid="status-not-eligible"
             >
-              Not eligible{phase.region ? ` for ${phase.region.label}` : ""}.
+              Not eligible{phase.region ? ` for ${phase.region.label}` : ""} yet — your passkey is
+              saved and will work once you qualify. Re-authenticate to check.
             </p>
           )}
           {phase.kind === "rejected" && (

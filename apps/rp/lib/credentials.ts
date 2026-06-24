@@ -22,3 +22,15 @@ export async function updateCredentialCounter(id: string, counter: number): Prom
   const pb = await getPb();
   await pb.collection("credentials").update(id, { counter });
 }
+
+export async function updateCredentialEligibility(
+  id: string,
+  fields: {
+    satisfiedConstraints?: string[];
+    attestationExpiresAt?: string;
+    attestationStatus?: "active" | "revoked" | "expired";
+  },
+): Promise<void> {
+  const pb = await getPb();
+  await pb.collection("credentials").update(id, fields);
+}
