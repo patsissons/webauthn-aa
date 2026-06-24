@@ -51,6 +51,20 @@ export async function listRequests(status?: string): Promise<RecordModel[]> {
   return pb.collection("attestation_requests").getFullList({ sort: "-created", filter });
 }
 
+export function summarizeRequest(r: RecordModel) {
+  return {
+    id: r.id,
+    status: r.status,
+    claimedName: r.claimedName,
+    claimedBirthDate: r.claimedBirthDate,
+    reviewedName: r.reviewedName,
+    reviewedBirthDate: r.reviewedBirthDate,
+    created: r.created,
+    decidedAt: r.decidedAt,
+    hasEvidence: Boolean(r.evidenceImage),
+  };
+}
+
 export async function updateReviewFields(
   id: string,
   fields: { reviewedName?: string; reviewedBirthDate?: string },

@@ -35,6 +35,17 @@ export async function listAttestations(): Promise<RecordModel[]> {
   return pb.collection("attestations").getFullList({ sort: "-created" });
 }
 
+export function summarizeAttestation(a: RecordModel) {
+  return {
+    id: a.id,
+    attestedName: a.attestedName,
+    status: a.status,
+    issuedAt: a.issuedAt,
+    expiresAt: a.expiresAt,
+    revokedAt: a.revokedAt,
+  };
+}
+
 export async function revokeAttestation(id: string, reason: string): Promise<RecordModel | null> {
   const pb = await getPb();
   const att = await pb

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,17 +18,18 @@ export function AttestationBrowser() {
   const [items, setItems] = useState<Attestation[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
-    const res = await fetch("/api/attestations/list", { cache: "no-store" });
-    const json = await res.json();
-    setItems(json.attestations ?? []);
-  }, []);
-
+  // SSE: the server pushes the attestation list on connect and on every change.
   useEffect(() => {
-    refresh();
-    const t = setInterval(refresh, 3000);
-    return () => clearInterval(t);
-  }, [refresh]);
+    const es = new EventSource("/api/attestations/events");
+    es.onmessage = (e) => {
+      try {
+        setItems(JSON.parse(e.data).attestations ?? []);
+      } catch {
+        /* ignore malformed frame */
+      }
+    };
+    return () => es.close();
+  }, []);
 
   async function revoke(id: string) {
     setBusy(id);
@@ -38,7 +39,7 @@ export function AttestationBrowser() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ reason: "reviewer revoked" }),
       });
-      await refresh();
+      // The SSE stream pushes the updated list.
     } finally {
       setBusy(null);
     }

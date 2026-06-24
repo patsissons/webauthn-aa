@@ -6,6 +6,7 @@ import { validateMaterial } from "@/lib/material-validation";
 import { getMaterial, markMaterialUsed } from "@/lib/material";
 import { openEvidence } from "@/lib/crypto";
 import { createRequest } from "@/lib/requests";
+import { emitChange } from "@/lib/event-bus";
 
 export const runtime = "nodejs";
 
@@ -65,6 +66,7 @@ export async function POST(req: Request) {
     requestedAttributes: body.requestedAttributes,
     photoDataUrl: evidence.photo,
   });
+  emitChange("requests");
 
   return NextResponse.json({ requestId: request.id, status: "pending" });
 }

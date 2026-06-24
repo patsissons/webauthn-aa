@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { revokeAttestation } from "@/lib/attestations";
 import { enqueueRevocationWebhook, deliverJob } from "@/lib/webhook";
+import { emitChange } from "@/lib/event-bus";
 
 export const runtime = "nodejs";
 
@@ -17,6 +18,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const attestation = await revokeAttestation(id, reason);
   if (!attestation) return NextResponse.json({ error: "not found" }, { status: 404 });
+  emitChange("attestations");
 
   const job = await enqueueRevocationWebhook(attestation);
   // Best-effort immediate delivery; the cron worker is the retry backstop.

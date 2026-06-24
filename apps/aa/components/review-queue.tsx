@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -25,17 +25,18 @@ export function ReviewQueue() {
   const [birthDate, setBirthDate] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const refresh = useCallback(async () => {
-    const res = await fetch("/api/review/list?status=pending", { cache: "no-store" });
-    const json = await res.json();
-    setRequests(json.requests ?? []);
-  }, []);
-
+  // SSE: the server pushes the pending queue on connect and on every change.
   useEffect(() => {
-    refresh();
-    const t = setInterval(refresh, 2500);
-    return () => clearInterval(t);
-  }, [refresh]);
+    const es = new EventSource("/api/review/events?status=pending");
+    es.onmessage = (e) => {
+      try {
+        setRequests(JSON.parse(e.data).requests ?? []);
+      } catch {
+        /* ignore malformed frame */
+      }
+    };
+    return () => es.close();
+  }, []);
 
   function select(r: RequestSummary) {
     setSelected(r);
@@ -53,7 +54,7 @@ export function ReviewQueue() {
         body: JSON.stringify({ action, reviewedName: name, reviewedBirthDate: birthDate }),
       });
       setSelected(null);
-      await refresh();
+      // The SSE stream pushes the updated queue.
     } finally {
       setBusy(false);
     }
@@ -66,7 +67,7 @@ export function ReviewQueue() {
     try {
       await fetch("/api/review/reject-all", { method: "POST" });
       setSelected(null);
-      await refresh();
+      // The SSE stream pushes the updated queue.
     } finally {
       setBusy(false);
     }

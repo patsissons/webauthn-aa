@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { decideRequest, getRequest, updateReviewFields } from "@/lib/requests";
 import { createAttestation } from "@/lib/attestations";
+import { emitChange } from "@/lib/event-bus";
 import { aaEnv } from "@/lib/env";
 
 export const runtime = "nodejs";
@@ -58,11 +59,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       reviewedName: name,
       reviewedBirthDate: birthDate,
     });
+    emitChange("requests");
     return NextResponse.json(summarize(updated as never));
   }
 
   if (parsed.data.action === "reject") {
     const updated = await decideRequest(id, "rejected", { decidedBy: parsed.data.decidedBy });
+    emitChange("requests");
     return NextResponse.json(summarize(updated as never));
   }
 
@@ -82,5 +85,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     issuedAt: issuedAt.toISOString(),
     expiresAt: new Date(issuedAt.getTime() + ttlMs).toISOString(),
   });
+  emitChange("requests");
+  emitChange("attestations");
   return NextResponse.json(summarize(updated as never));
 }
