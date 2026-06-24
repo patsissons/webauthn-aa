@@ -97,6 +97,46 @@ describe("age module — all/any combinators", () => {
   });
 });
 
+describe("age module — monotonicity", () => {
+  const mono = (config: unknown) => ageModule.compile(config).monotonic;
+  it("treats >= and > as monotonic", () => {
+    expect(mono({ op: ">=", value: 18 })).toBe(true);
+    expect(mono({ op: ">", value: 18 })).toBe(true);
+  });
+  it("treats <, <=, ==, != as non-monotonic", () => {
+    expect(mono({ op: "<", value: 21 })).toBe(false);
+    expect(mono({ op: "<=", value: 65 })).toBe(false);
+    expect(mono({ op: "==", value: 21 })).toBe(false);
+    expect(mono({ op: "!=", value: 21 })).toBe(false);
+  });
+  it("AND/OR are monotonic only if every leaf is", () => {
+    expect(
+      mono({
+        all: [
+          { op: ">=", value: 18 },
+          { op: ">=", value: 21 },
+        ],
+      }),
+    ).toBe(true);
+    expect(
+      mono({
+        all: [
+          { op: ">=", value: 18 },
+          { op: "<", value: 21 },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      mono({
+        any: [
+          { op: "<", value: 13 },
+          { op: ">", value: 65 },
+        ],
+      }),
+    ).toBe(false);
+  });
+});
+
 describe("describeAge — human-readable summaries", () => {
   it("formats simple thresholds with comparison symbols", () => {
     expect(describeAge({ op: ">=", value: 18 })).toBe("age ≥ 18");

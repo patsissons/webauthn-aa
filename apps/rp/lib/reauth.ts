@@ -2,7 +2,7 @@ import "server-only";
 import type { RecordModel } from "pocketbase";
 import type { Region } from "@webauthn-aa/contracts";
 import { authorizeReauth } from "./authorization";
-import { evaluateAllRegions } from "./regions";
+import { evaluateAllRegions, isConstraintMonotonic } from "./regions";
 import { refreshAttestation } from "./aa-client";
 import { updateCredentialEligibility } from "./credentials";
 
@@ -37,10 +37,19 @@ export async function authorizeWithRefresh(
     attestationExpiresAt: credential.attestationExpiresAt || undefined,
     now,
   });
-  if (fast.authorized) return { authorized: true, satisfiedConstraints: cached };
-  // Only a "not yet eligible" miss is worth refreshing; revoked/expired are terminal.
-  if (fast.reason !== "constraint not satisfied" || !credential.attestationId) {
+  // Revoked/expired are terminal — never refresh, route to re-attestation.
+  if (!fast.authorized && fast.reason !== "constraint not satisfied") {
     return { authorized: false, reason: fast.reason, satisfiedConstraints: cached };
+  }
+  // Monotonic constraint already satisfied → trust the cache (age only increases).
+  if (fast.authorized && isConstraintMonotonic(region.constraintSetId)) {
+    return { authorized: true, satisfiedConstraints: cached };
+  }
+  // Otherwise — a not-yet-eligible miss, OR a non-monotonic cached pass that could
+  // have aged out — recompute against the current age. Without an attestation to
+  // refresh, fall back to the cached verdict.
+  if (!credential.attestationId) {
+    return { authorized: fast.authorized, reason: fast.reason, satisfiedConstraints: cached };
   }
 
   let fresh;

@@ -71,6 +71,17 @@ export function describeAge(config: unknown): string {
   return describeExpr(ageExprSchema.parse(config));
 }
 
+/**
+ * Monotonic non-decreasing in age: every leaf is `>=`/`>` (and AND/OR preserve
+ * monotonicity). For such constraints a cached "satisfied" stays valid as the
+ * device ages; others can age out and must be re-checked.
+ */
+function isMonotonic(expr: AgeExpr): boolean {
+  if ("op" in expr) return expr.op === ">=" || expr.op === ">";
+  const children = "all" in expr ? expr.all : expr.any;
+  return children.every(isMonotonic);
+}
+
 export const ageModule: ConstraintModule = {
   id: "age",
   version: "1.0.0",
@@ -79,6 +90,7 @@ export const ageModule: ConstraintModule = {
     return {
       setId: setIdFor(expr),
       attributeRequests: [{ name: "age", type: "integer", derivedFrom: "birthDate" }],
+      monotonic: isMonotonic(expr),
       evaluate(minimized: Record<string, unknown>) {
         const age = minimized.age;
         if (typeof age !== "number" || !Number.isFinite(age)) {

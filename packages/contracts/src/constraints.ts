@@ -34,6 +34,13 @@ export interface CompiledConstraint {
   /** Stable id stored in the binding, e.g. "age_gte_18". */
   setId: string;
   attributeRequests: AttributeRequest[];
+  /**
+   * True if the predicate can only become *more* satisfied as the underlying
+   * value increases (e.g. age `>=`/`>`), so a cached "satisfied" stays valid
+   * over time. Non-monotonic constraints (`<`, `==`, ranges) must be re-checked
+   * against the current value rather than trusting a cached pass.
+   */
+  monotonic: boolean;
   evaluate(minimized: Record<string, unknown>): { pass: boolean; reason?: string };
 }
 

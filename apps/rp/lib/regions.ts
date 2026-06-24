@@ -12,6 +12,8 @@ interface CompiledRegion {
   constraintSetId: string;
   /** Human-readable constraint, e.g. "age ≥ 18". */
   summary: string;
+  /** Whether a cached "satisfied" stays valid as the device ages (see CompiledConstraint). */
+  monotonic: boolean;
   evaluate: (minimized: Record<string, unknown>) => { pass: boolean; reason?: string };
 }
 
@@ -42,10 +44,20 @@ export function loadRegions(): CompiledRegion[] {
       label: entry.label,
       constraintSetId: compiled.setId,
       summary: describeAge(entry.config),
+      monotonic: compiled.monotonic,
       evaluate: compiled.evaluate,
     };
   });
   return cache;
+}
+
+/**
+ * Whether a constraint can only become more satisfied over time. Re-auth may
+ * trust a cached pass for monotonic constraints; non-monotonic ones must be
+ * re-checked against the current age. Unknown ids default to false (safe: refresh).
+ */
+export function isConstraintMonotonic(constraintSetId: string): boolean {
+  return loadRegions().find((r) => r.constraintSetId === constraintSetId)?.monotonic ?? false;
 }
 
 export function listRegions(): Region[] {
