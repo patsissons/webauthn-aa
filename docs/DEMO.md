@@ -14,17 +14,19 @@ pnpm dev          # seeds PocketBase, then launches RP, AA, and both PB instance
 - **AA** (reviewer): <http://localhost:3001>
 - PocketBase admin UIs: <http://localhost:8090/_> (RP) and <http://localhost:8091/_> (AA)
 
-Use a Chromium-based browser so platform passkeys work on `localhost`. The RP only
-ever talks to the AA server-to-server.
+Use a Chromium-based browser so platform passkeys work on `localhost`. The browser talks to
+the RP, and **directly to the AA** for the genuine encryption key and the cross-origin capture
+dialog; the RP brokers the rest server-to-server and only ever holds ciphertext.
 
 ## Scenarios
 
-1. **Happy path.** On the RP, enter a name, a date of birth that is 18+ (e.g.
-   `1998-01-01`), upload any image as the ID photo, leave the region on **Region 1**,
-   and click **Verify & create passkey**. The page shows "Waiting for verification".
-   On the AA, open the pending request, confirm the photo beside the claimed fields,
-   and click **Approve**. The RP creates a passkey and shows **Authenticated** with the
-   satisfied thresholds (`age_gte_18`, `age_gte_21`).
+1. **Happy path.** On the RP, leave the region on **Region 1** and click **Verify your age** —
+   a secure capture dialog opens **on the AA origin** (an iframe the RP can't read into). In it,
+   enter a name and a date of birth that is 18+ (e.g. `1998-01-01`) and add an ID photo (or click
+   **Adult specimen** to generate an obviously-fake one), then **Encrypt & submit**. The RP shows
+   "Waiting for verification". On the AA, open the pending request, confirm the photo beside the
+   claimed fields, and click **Approve**. The RP creates a passkey (pushed over SSE — no polling)
+   and shows **Authenticated** with the satisfied thresholds (`age_gte_18`, `age_gte_21`).
 2. **Cheap repeat.** Reload the RP and click **Re-authenticate**. Access is granted with
    the passkey only — no photo, no AA call.
 3. **Threshold variation, allowed.** Set the demo dropdown to **Region 2** and click
@@ -45,10 +47,11 @@ ever talks to the AA server-to-server.
    the DOB.)
 6. **Reviewer rejection.** Submit evidence and **Reject** it on the AA. The applicant sees
    "Not eligible — evidence was rejected"; nothing is persisted.
-7. **Revocation.** After a happy-path registration, open the AA **Issued attestations**
-   panel and click **Revoke**. A signed webhook is delivered to the RP (watch
-   `webhook_jobs` in the AA admin UI), which invalidates the binding. The device's next
-   re-authentication is **denied (revoked)** and routes back to attestation.
+7. **Revocation.** After a happy-path registration, open the AA **Issued attestations** panel,
+   click the attestation to audit its evidence + status, and click **Revoke**. A signed webhook
+   is delivered to the RP, which invalidates the binding and **pushes an immediate logout** to
+   the still-open RP page over SSE (no reload). The device's next re-authentication is also
+   **denied (revoked)** and routes back to attestation.
 8. **TTL expiry.** Approve a request with a short TTL (the demo dropdown uses the default
    1-year TTL; the e2e suite approves with `ttlMs` to force expiry). Once expired, the
    next re-authentication is **denied (expired)** on freshness, even with no webhook.

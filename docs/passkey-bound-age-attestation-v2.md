@@ -4,6 +4,11 @@
 **Status:** Agreed scope, ready to build
 **Owner:** Pat
 
+> **Note (as-built):** this remains the original design-of-record. The running prototype
+> deliberately diverges in several places (PocketBase data plane, AA-owned capture, SSE /
+> event-driven instead of long-poll, decoupled eligibility with lazy refresh). See
+> [`IMPLEMENTATION.md`](IMPLEMENTATION.md) for the as-built architecture and the rationale.
+
 This document is the authoritative spec for the prototype. Feasibility is settled (see v1 for the full study); the short version is that the system uses **stock, unmodified WebAuthn** for the key ceremonies, runs attribute attestation as an **out-of-band step that gates registration**, and binds the outcome to the credential server-side. It is not a WebAuthn protocol change. It is an application-layer protocol that uses WebAuthn as its authentication primitive, and it matches the emerging industry pattern of passkey-bound age tokens.
 
 ---
