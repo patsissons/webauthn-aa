@@ -10,6 +10,14 @@ loadEnv({ path: join(repoRoot, ".env.local"), override: true });
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@webauthn-aa/contracts", "@webauthn-aa/constraints"],
+  // The repo-root config/regions.json is read at runtime via readFileSync
+  // (apps/rp/lib/regions.ts). Pin the trace root to the monorepo root and
+  // include that file so it ships in the serverless bundle on Vercel (where the
+  // Root Directory is apps/rp); otherwise region resolution 500s at runtime.
+  outputFileTracingRoot: repoRoot,
+  outputFileTracingIncludes: {
+    "/**": ["../../config/regions.json", "../../pocketbase/rp/schema.json"],
+  },
 };
 
 export default nextConfig;

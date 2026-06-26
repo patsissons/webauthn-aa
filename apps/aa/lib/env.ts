@@ -22,4 +22,21 @@ export const aaEnv = {
   get pbSuperuserPassword() {
     return required("POCKETBASE_AA_SUPERUSER_PASSWORD");
   },
+
+  // RP-client seed used to bootstrap an empty instance's rp_clients row
+  // (apps/aa/lib/bootstrap.ts). Optional: if the token/secret/url aren't set the
+  // app still creates the schema but skips seeding (e.g. local dev seeds it via
+  // scripts/seed.mjs instead). The bearer token is stored only as its sha256.
+  rpClientName: process.env.RP_CLIENT_NAME ?? "demo-rp",
+  rpClientToken: process.env.ATTESTATION_API_AUTH_TOKEN,
+  rpClientWebhookSecret: process.env.RP_WEBHOOK_SECRET,
+  rpClientWebhookUrl: process.env.RP_WEBHOOK_URL,
+  rpClientAllowedAttributes: (process.env.ATTESTATION_REQUESTED_ATTRIBUTES ?? "name,age")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean),
+
+  // Shared secret Vercel Cron presents (Authorization: Bearer) to the webhook
+  // drain route. Optional locally; required for the hosted cron to authenticate.
+  cronSecret: process.env.CRON_SECRET,
 };
