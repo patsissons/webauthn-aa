@@ -81,6 +81,25 @@ snapshot. That locks out a near-boundary user (days from 18) and never re-evalua
 - e2e runs against **isolated** PocketBase data dirs (`pb_data_test` via `dev:test`) so it never
   pollutes the `pnpm dev` database.
 
+## Provisioning & reset
+
+- **Self-provisioning.** `getPb()` awaits `ensureProvisioned` (`apps/{rp,aa}/lib/bootstrap.ts`)
+  once per process: when the sentinel collection is missing (`credentials` / `rp_clients`) it
+  imports the committed schema snapshot via `pb.collections.import(…, deleteMissing=false)`, so a
+  hosted deploy needs only an empty instance + a superuser. Concurrent cold-start imports are
+  tolerated (errors re-verify existence). The AA additionally seeds its `rp_clients` row from env.
+- **Schema snapshots** (`pocketbase/{rp,aa}/schema.json`) are generated from the local DBs by
+  `scripts/export-schema.mjs` (system + default `users` collection excluded) and read at runtime
+  (`outputFileTracingIncludes` ships them into the serverless bundle). Re-run the exporter after
+  changing `pocketbase/*/pb_migrations`.
+- **Webhook retry** moves to Vercel Cron (`apps/aa/app/api/cron/webhooks`, `CRON_SECRET`-gated,
+  scheduled in `apps/aa/vercel.json`) calling the same `deliverJob()`; the `webhook-worker.pb.js`
+  hook stays as the fallback for schedulers that can't run per-minute.
+- **Demo reset** is an opt-in PocketBase cron hook (`pocketbase/{rp,aa}/pb_hooks/reset-worker.pb.js`,
+  armed by `RESET_ENABLED`, cadence via `RESET_CRON`). It deletes via the record API (evidence
+  files cleaned too) from demo-data collections only — `rp_clients` and the schema persist, so the
+  demo is usable immediately after a wipe and no secret ever lives inside PocketBase.
+
 ## Endpoint quick reference
 
 **RP** (`apps/rp`)

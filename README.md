@@ -58,6 +58,22 @@ UIs: <http://localhost:8090/_> and <http://localhost:8091/_>.
   HMAC secret. `scripts/seed.mjs` provisions PocketBase superusers and the AA `rp_clients`
   row from these values.
 
+## Provisioning & reset
+
+For a hosted deploy (e.g. Vercel + PocketHost), an empty PocketBase instance plus a
+superuser is all that's needed — each app **self-provisions** on first request:
+`ensureProvisioned` (`apps/{rp,aa}/lib/bootstrap.ts`) imports the committed schema snapshot
+(`pocketbase/{rp,aa}/schema.json`) when its collections are missing, and the AA also seeds
+its `rp_clients` row from env. Regenerate the snapshots after changing the migrations with
+`node scripts/export-schema.mjs`.
+
+- The webhook retry queue is drained by Vercel Cron (`apps/aa/app/api/cron/webhooks`,
+  scheduled in `apps/aa/vercel.json`); `pocketbase/aa/pb_hooks/webhook-worker.pb.js` is the
+  fallback where cron can't run frequently.
+- Optional scheduled demo wipes: upload `pocketbase/{rp,aa}/pb_hooks/reset-worker.pb.js` and
+  set `RESET_ENABLED=true` (cadence via `RESET_CRON`). They clear demo data only — the schema
+  and `rp_clients` are preserved.
+
 ## Testing
 
 ```bash
