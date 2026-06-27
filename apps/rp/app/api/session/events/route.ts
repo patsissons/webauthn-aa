@@ -2,6 +2,12 @@ import { findCredentialByCredentialId } from "@/lib/credentials";
 import { onSession, type SessionEvent } from "@/lib/session-bus";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
+
+// On a multi-instance serverless deploy the in-process bus (onSession) only
+// catches same-instance revokes, so the stream also polls the credential's status
+// (the DB is the shared source of truth) to catch a cross-instance revoke.
+const POLL_MS = 3000;
 
 // GET /api/session/events?credentialId=... — per-session SSE. Pushes a single
 // `revoked` or `expired` event the moment the device's attestation is
@@ -49,6 +55,14 @@ export async function GET(req: Request) {
       };
       const unsub = onSession(credentialId, finish);
 
+      // Cross-instance fallback: poll the credential's status (the bus only
+      // catches a same-instance revoke on a serverless deploy).
+      const poll = setInterval(async () => {
+        if (closed) return;
+        const latest = await findCredentialByCredentialId(credentialId).catch(() => null);
+        if (latest?.attestationStatus === "revoked") finish({ type: "revoked" });
+      }, POLL_MS);
+
       // TTL freshness: fire `expired` when the attestation lapses (only arm for
       // near-future expiries; far-future ones outlive any session).
       let expiryTimer: ReturnType<typeof setTimeout> | undefined;
@@ -64,6 +78,7 @@ export async function GET(req: Request) {
 
       function cleanup() {
         unsub();
+        clearInterval(poll);
         if (expiryTimer) clearTimeout(expiryTimer);
         clearInterval(heartbeat);
       }

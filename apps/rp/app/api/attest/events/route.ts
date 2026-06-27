@@ -3,11 +3,16 @@ import { onDecision } from "@/lib/attest-bus";
 import { rpEnv } from "@/lib/env";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
+
+// On a multi-instance serverless deploy the in-process bus (onDecision) only
+// catches same-instance webhook wakeups, so the stream also polls the status (the
+// DB is the shared source of truth) and pushes only when it changes.
+const POLL_MS = 3000;
 
 // GET /api/attest/events?requestId=...&demoRegion=... — Server-Sent Events.
-// Event-driven (no polling): sends the current status on connect, then waits for
-// the AA's `decision` webhook (delivered to /api/webhooks/attestation, which
-// wakes us via the in-process bus) before re-checking once and resolving.
+// Sends the current status on connect, then resolves when the AA's `decision`
+// webhook wakes us (in-process bus) or the poll observes the decision in the DB.
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const requestId = url.searchParams.get("requestId");
@@ -19,6 +24,7 @@ export async function GET(req: Request) {
     start(controller) {
       let closed = false;
       let done = false;
+      let lastSent = "";
       const send = (data: unknown) => {
         if (!closed) controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
       };
@@ -47,7 +53,11 @@ export async function GET(req: Request) {
           return;
         }
         if (done || closed) return;
-        send(result);
+        const payload = JSON.stringify(result);
+        if (payload !== lastSent) {
+          lastSent = payload;
+          send(result);
+        }
         if (result.status !== "pending") {
           done = true;
           close();
@@ -55,12 +65,14 @@ export async function GET(req: Request) {
       };
 
       const unsub = onDecision(requestId, () => void check());
+      const poll = setInterval(() => void check(), POLL_MS);
       const budget = setTimeout(close, rpEnv.attestationTotalBudgetMs);
       const heartbeat = setInterval(() => {
         if (!closed) controller.enqueue(encoder.encode(`: ping\n\n`));
       }, 15000);
       function cleanup() {
         unsub();
+        clearInterval(poll);
         clearTimeout(budget);
         clearInterval(heartbeat);
       }
