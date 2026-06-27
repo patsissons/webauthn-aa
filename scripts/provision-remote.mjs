@@ -31,8 +31,12 @@ import { config as loadEnv } from "dotenv";
 import PocketBase from "pocketbase";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+// Explicit environment variables take precedence (this is a remote/CI tool), so
+// load the dotenv files WITHOUT override — they only fill gaps. Otherwise a
+// committed .env.local would clobber a prod token/secret passed on the command
+// line and seed the wrong bearerTokenHash.
+loadEnv({ path: join(root, ".env.local") });
 loadEnv({ path: join(root, ".env") });
-loadEnv({ path: join(root, ".env.local"), override: true });
 
 const sha256hex = (s) => createHash("sha256").update(s).digest("hex");
 
